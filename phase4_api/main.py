@@ -138,12 +138,12 @@ async def run_pipeline(limit: int, days: int):
                 target_reviews = source_reviews[:limit]
                 
                 # 3. Run Analysis Natively
-                report = await analyzer.run_analysis(target_reviews, limit=limit, days=days)
+                report, error_msg = await analyzer.run_analysis(target_reviews, limit=limit, days=days)
                 
                 if report:
                     print(f"[PIPELINE] Native Analysis Success. Analyzed {len(target_reviews)} of {source_total} relevant reviews.")
                 else:
-                    raise ValueError("Intelligence Generation Failure: LLM returned empty result.")
+                    raise ValueError(error_msg or "Intelligence Generation Failure: LLM returned empty result.")
         
     except Exception as e:
         print(f"Pipeline Execution Failed: {str(e)}")

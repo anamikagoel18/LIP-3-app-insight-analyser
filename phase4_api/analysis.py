@@ -74,10 +74,11 @@ class ReviewAnalyzer:
             print(f"[ERROR] Groq Batch {index+1} failed: {str(e)}")
             return None
 
-    async def run_analysis(self, reviews: List[Dict], limit: int = 100, days: int = 0) -> Optional[Dict[str, Any]]:
+    async def run_analysis(self, reviews: List[Dict], limit: int = 100, days: int = 0) -> (Optional[Dict[str, Any]], Optional[str]):
         if not reviews:
-            print("[WARN] No reviews provided for analysis.")
-            return None
+            err = "No reviews found for this time range. Try a wider 'Time Range' selection."
+            print(f"[WARN] {err}")
+            return None, err
 
         # PREVENT QUOTA EXHAUSTION: 
         target_reviews = reviews[:250] if len(reviews) > 250 else reviews
@@ -94,16 +95,16 @@ class ReviewAnalyzer:
         Generate a comprehensive Strategic Intelligence Report (Weekly Pulse) based on these {analyzed_count} app reviews.
         
         OUTPUT SECTIONS:
-        1. Executive Briefing: A scannable summary of sentiment.
-        2. Top 3 Themes: Clusters with 'name', 'status' (Improving/Critical/Neutral), and 'impact' (High/Medium/Low).
-        3. 3 User Quotes: Verbatim anonymized quotes.
-        4. 3 Strategic Actions: Technical or product improvement ideas.
-        5. Draft Email: Complete email for stakeholders.
+        Executive Briefing: Sentiment summary.
+        Top 3 Themes: Cluster name, status, and impact.
+        3 Quotes: Verbatim anonymized quotes.
+        3 Strategic Actions: Product improvement ideas.
+        Draft Email: Complete stakeholder email.
         
         REVIEWS:
         {review_data}
         
-        Return ONLY a JSON object in this STRICTURE format:
+        Return ONLY a JSON object:
         {{
           "summary": "string",
           "top_themes": [{{ "theme": "string", "status": "string", "impact": "string" }}],
@@ -118,30 +119,38 @@ class ReviewAnalyzer:
         }}
         """
 
+        engine_name = "Unknown"
+        final_report = None
+        error_msg = None
+
         try:
+            # --- TRY PRIMARY (GROQ) ---
             try:
-                # --- TRY PRIMARY (GROQ) ---
                 if not self.groq_client:
-                    raise ValueError("Groq client not initialized.")
+                    raise ValueError("Groq client not initialized (Key missing).")
                     
-                print(f"[ANALYSIS] Sending Single-Pass to Primary Engine (Groq)...")
+                print(f"[ANALYSIS] Sending to Primary Engine (Groq)...")
                 completion = await self.groq_client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.groq_model,
                     response_format={"type": "json_object"}
                 )
-                report_content = completion.choices[0].message.content
-                final_report = json.loads(report_content)
-                engine_name = "Groq (Llama 3.3)"
+                final_report = json.loads(completion.choices[0].message.content)
+                engine_name = f"Groq ({self.groq_model})"
                 
             except Exception as groq_err:
-                print(f"[WARN] Groq Primary Failed: {str(groq_err)}. Falling back to Gemini...")
-                
-                if not self.gemini_model:
-                    raise ValueError("Gemini fallback not available (key missing).")
+                err_str = str(groq_err).lower()
+                print(f"[WARN] Groq Primary Failed: {groq_err}")
                 
                 # --- FALLBACK (GEMINI) ---
-                print(f"[ANALYSIS] Sending Single-Pass to Fallback Engine (Gemini 1.5 Flash)...")
+                if not self.gemini_model:
+                    if "rate_limit" in err_str or "quota" in err_str or "429" in err_str:
+                        error_msg = "Groq Rate Limit Exceeded. Set a GEMINI_API_KEY as fallback!"
+                    else:
+                        error_msg = f"Groq Error: {str(groq_err)}"
+                    raise ValueError(error_msg)
+                
+                print(f"[ANALYSIS] Sending to Fallback Engine (Gemini 1.5 Flash)...")
                 gemini_response = self.gemini_model.generate_content(
                     prompt,
                     generation_config={"response_mime_type": "application/json"}
@@ -149,15 +158,22 @@ class ReviewAnalyzer:
                 final_report = json.loads(gemini_response.text)
                 engine_name = "Gemini (1.5 Flash)"
 
-            # 4. Persistence
-            await self.save_results(final_report, analyzed_count, source_total, limit, days, engine=engine_name)
-            
-            print(f"[ANALYSIS] Intelligence Success ({engine_name}).")
-            return final_report
-            
+            # Persistence
+            if final_report:
+                await self.save_results(final_report, analyzed_count, source_total, limit, days, engine=engine_name)
+                print(f"[ANALYSIS] Intelligence Success ({engine_name}).")
+                return final_report, None
+            else:
+                return None, "Empty Intelligence Result."
+
         except Exception as e:
-            print(f"[ERROR] Dual-Engine Analysis Failed: {str(e)}")
-            return None
+            err_msg = str(e)
+            if "quota" in err_msg.lower() or "429" in err_msg.lower() or "rate_limit" in err_msg.lower():
+                err_msg = "API Rate Limit Exceeded (Groq/Gemini). Please try again in 60s."
+            
+            print(f"[ERROR] Engine Analysis Failed: {err_msg}")
+            return None, err_msg
+
 
     async def save_results(self, report: Dict[str, Any], analyzed_count: int, source_total: int, limit: int, days: int, engine: str = "Unknown"):
         # 1. Save JSON files
