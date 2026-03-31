@@ -74,21 +74,20 @@ export default function BrandedDashboard() {
     }
   }, [analyzing, status?.isProcessing]);
 
-  // Update UI filters to match pulse metadata once loaded (Initial or After Analysis)
+  // Only sync filters FROM pulse data ONCE on the very first load or after a successful analysis
   useEffect(() => {
     if (pulse && !analyzing && !(status?.isProcessing) && !hasSynced.current) {
-      if (pulse.review_limit) {
-        setLimit(Number(pulse.review_limit));
-      }
-      if (pulse.time_range !== undefined) {
-        const weeksFromPulse = Math.round(Number(pulse.time_range) / 7);
-        if (weeksFromPulse > 0 || pulse.time_range === 0) {
-          setTimeRange(weeksFromPulse.toString());
+        // We only initialize the filters IF they haven't been manually changed yet
+        // For simplicity: We only sync on the absolute first display of fresh data
+        if (pulse.review_limit) setLimit(Number(pulse.review_limit));
+        if (pulse.time_range !== undefined) {
+          const weeks = Math.round(Number(pulse.time_range) / 7);
+          setTimeRange(weeks > 0 || pulse.time_range === 0 ? weeks.toString() : '8');
         }
-      }
-      hasSynced.current = true;
+        hasSynced.current = true;
     }
   }, [pulse, analyzing, status?.isProcessing]);
+
 
   useEffect(() => {
     fetchReviews();
