@@ -242,12 +242,23 @@ async def get_status():
     return metadata
 
 @app.post("/api/email")
-async def send_email(req: EmailRequest, background_tasks: BackgroundTasks):
+async def send_email(req: EmailRequest):
     if not req.email:
         raise HTTPException(status_code=400, detail="Recipient email is required.")
     
-    background_tasks.add_task(email_service.send_weekly_pulse, req.email, req.name)
-    return {"message": f"Email dispatch to {req.name or req.email} scheduled successfully."}
+    # We run this synchronously for immediate feedback or use background task?
+    # User wanted to know IF it works, so let's run it and return the result.
+    success, message = await email_service.send_weekly_pulse(req.email, req.name)
+    if success:
+        return {"message": f"Pulse delivered to {req.name or req.email}."}
+    else:
+        raise HTTPException(status_code=500, detail=message)
+
+@app.get("/api/test-email")
+async def test_email():
+    """Diagnostic endpoint to check SMTP connection"""
+    success, message = await email_service.send_weekly_pulse(os.getenv("EMAIL_RECEIVER"), "Diagnostic Test")
+    return {"success": success, "message": message, "smtp_user": os.getenv("SMTP_USER"), "smtp_host": os.getenv("SMTP_HOST")}
 
 @app.post("/api/preview")
 async def preview_email(req: EmailRequest):

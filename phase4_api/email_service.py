@@ -95,9 +95,14 @@ class EmailService:
         target_email = recipient_email or os.getenv("EMAIL_RECEIVER")
         name = recipient_name or "User"
 
+        # 1. Validation Checks
+        if not self.smtp_user or not self.smtp_pass:
+            print("[EMAIL ERROR] Missing SMTP_USER or SMTP_PASS environment variables.")
+            return False, "Missing credentials (SMTP_USER/SMTP_PASS)"
+
         if not os.path.exists(pulse_path):
             print(f"[EMAIL ERROR] {pulse_path} not found.")
-            return False
+            return False, "Pulse data not found. Run analysis first."
 
         try:
             with open(pulse_path, 'r', encoding='utf-8') as f:
@@ -113,17 +118,31 @@ class EmailService:
             msg['Subject'] = f"Weekly Pulse: {first_theme}"
             msg.attach(MIMEText(html_content, 'html'))
 
-            # Send via SMTP
-            server = smtplib.SMTP(self.smtp_host, self.smtp_port)
-            server.starttls()
+            # 2. Connectivity Strategy (TLS vs SSL)
+            print(f"[EMAIL] Attempting delivery to {target_email} via {self.smtp_host}:{self.smtp_port}...")
+            
+            if self.smtp_port == 465:
+                # SSL approach
+                server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10)
+            else:
+                # TLS approach (Port 587 or 25)
+                server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10)
+                server.starttls()
+
             server.login(self.smtp_user, self.smtp_pass)
             server.send_message(msg)
             server.quit()
 
-            print(f"[EMAIL] Successfully sent to {target_email}")
-            return True
+            print(f"[EMAIL] Successfully delivered to {target_email}")
+            return True, "Success"
+
+        except smtplib.SMTPAuthenticationError:
+            err = "Authentication Failed. Please verify your SMTP_USER and ensure you use a Gmail APP PASSWORD, not your account password."
+            print(f"[EMAIL ERROR] {err}")
+            return False, err
         except Exception as e:
-            print(f"[EMAIL ERROR] Critical Failure: {str(e)}")
-            return False
+            err = f"Critical Failure: {str(e)}"
+            print(f"[EMAIL ERROR] {err}")
+            return False, err
 
 email_service = EmailService()
