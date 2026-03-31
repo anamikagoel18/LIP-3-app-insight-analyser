@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import aiofiles
 from dotenv import load_dotenv
-from .email_service import email_service
+from phase4_api.email_service import email_service
 
 # Load Environment Variables
 load_dotenv()
@@ -37,6 +37,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Allow overriding data directory via env for persistent volumes (important for Docker/Render)
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
 REPORTS_DIR = os.getenv("REPORTS_DIR", os.path.join(BASE_DIR, "reports"))
+
+# Ensure directories exist on startup to prevent crashes (important for cloud-native environments)
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 PULSE_PATH = os.path.join(REPORTS_DIR, "weekly_pulse.json")
 REPORT_PATH = os.path.join(REPORTS_DIR, "weekly_report.json")
