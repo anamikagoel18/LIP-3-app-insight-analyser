@@ -9,7 +9,7 @@ if (!fs.existsSync(path.dirname(dbPath))) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 }
 
-const db = new Database(dbPath, { verbose: console.log });
+const db = new Database(dbPath);
 
 // Initialize Tables
 db.exec(`
