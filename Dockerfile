@@ -37,5 +37,6 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 RUN mkdir -p /app/data /app/reports
 
 # Step 6: Entry Point (Gunicorn for Production)
-# We trust Railway to provide the $PORT variable
-CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+# We force 8080 and reduce workers for maximum stability on Railway
+CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8080"]
+
