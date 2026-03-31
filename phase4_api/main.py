@@ -125,20 +125,23 @@ async def run_pipeline(limit: int, days: int):
                 raw_data = json.loads(content)
                 reviews = raw_data if isinstance(raw_data, list) else raw_data.get("reviews", [])
                 
-                # RELEVANT FILTERING: Apply 'days' filter here too!
+                # 1. Apply 'days' filter to get the Relevant Source Pool
+                source_reviews = reviews
                 if days > 0:
                     cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
-                    reviews = [r for r in reviews if parse_date(r.get("date")) >= cutoff]
+                    source_reviews = [r for r in reviews if parse_date(r.get("date")) >= cutoff]
                 
-                # Sort and Limit
-                reviews.sort(key=lambda x: parse_date(x.get("date")), reverse=True)
-                target_reviews = reviews[:limit]
+                source_total = len(source_reviews)
                 
-                # 2. Run Analysis Natively with limit/days metadata
+                # 2. Sort and Slice to requested limit for ACTUAL analysis
+                source_reviews.sort(key=lambda x: parse_date(x.get("date")), reverse=True)
+                target_reviews = source_reviews[:limit]
+                
+                # 3. Run Analysis Natively
                 report = await analyzer.run_analysis(target_reviews, limit=limit, days=days)
                 
                 if report:
-                    print(f"[PIPELINE] Native Analysis Success. Analyzed {len(target_reviews)} reviews.")
+                    print(f"[PIPELINE] Native Analysis Success. Analyzed {len(target_reviews)} of {source_total} relevant reviews.")
                 else:
                     raise ValueError("Intelligence Generation Failure: LLM returned empty result.")
         

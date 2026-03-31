@@ -80,23 +80,25 @@ class ReviewAnalyzer:
             return None
 
         # PREVENT QUOTA EXHAUSTION: 
-        # For High Depth (500), we sample the top 250 most relevant/recent reviews 
-        # to ensure we stay within Token-Per-Minute (TPM) limits on a single pass.
         target_reviews = reviews[:250] if len(reviews) > 250 else reviews
         
-        print(f"[ANALYSIS] Starting Single-Pass Intelligence for {len(target_reviews)} reviews (Limit: {limit})...")
+        # Metadata counts
+        analyzed_count = len(target_reviews)
+        source_total = len(reviews)
+        
+        print(f"[ANALYSIS] Starting Single-Pass for {analyzed_count} reviews (Total Source: {source_total})...")
         
         review_data = "\n".join([f"- [Rating: {r.get('rating')}] {r.get('text') or r.get('content')}" for r in target_reviews])
         
         prompt = f"""
-        Generate a comprehensive Strategic Intelligence Report (Weekly Pulse) based on these {len(target_reviews)} app reviews.
+        Generate a comprehensive Strategic Intelligence Report (Weekly Pulse) based on these {analyzed_count} app reviews.
         
         OUTPUT SECTIONS:
-        1. Executive Briefing: A concise, scannable summary (<250 words) of the overall sentiment and major shifts.
-        2. Top 3 Themes: The most critical clusters with 'name', 'status' (Improving/Critical/Neutral), and 'impact' (High/Medium/Low).
-        3. 3 User Quotes: Verbatim, anonymized, high-signal quotes reflecting core themes.
-        4. 3 Strategic Actions: Clear, technical, or product-driven improvement ideas.
-        5. Draft Email: A complete, ready-to-use email for stakeholders (Product Managers/Engineers) with the summary and top themes.
+        1. Executive Briefing: A scannable summary of sentiment.
+        2. Top 3 Themes: Clusters with 'name', 'status' (Improving/Critical/Neutral), and 'impact' (High/Medium/Low).
+        3. 3 User Quotes: Verbatim anonymized quotes.
+        4. 3 Strategic Actions: Technical or product improvement ideas.
+        5. Draft Email: Complete email for stakeholders.
         
         REVIEWS:
         {review_data}
@@ -106,7 +108,7 @@ class ReviewAnalyzer:
           "summary": "string",
           "top_themes": [{{ "theme": "string", "status": "string", "impact": "string" }}],
           "weekly_pulse": {{
-            "total_reviews": {len(reviews)},
+            "total_reviews": {analyzed_count},
             "top_themes": [{{ "name": "string", "description": "string", "count": number }}],
             "quotes": ["string"],
             "action_ideas": ["string"],
@@ -140,7 +142,6 @@ class ReviewAnalyzer:
                 
                 # --- FALLBACK (GEMINI) ---
                 print(f"[ANALYSIS] Sending Single-Pass to Fallback Engine (Gemini 1.5 Flash)...")
-                # Gemini JSON mode usually requires explicit instruction if not using response_schema
                 gemini_response = self.gemini_model.generate_content(
                     prompt,
                     generation_config={"response_mime_type": "application/json"}
@@ -149,7 +150,7 @@ class ReviewAnalyzer:
                 engine_name = "Gemini (1.5 Flash)"
 
             # 4. Persistence
-            await self.save_results(final_report, len(reviews), limit, days, engine=engine_name)
+            await self.save_results(final_report, analyzed_count, source_total, limit, days, engine=engine_name)
             
             print(f"[ANALYSIS] Intelligence Success ({engine_name}).")
             return final_report
@@ -158,13 +159,14 @@ class ReviewAnalyzer:
             print(f"[ERROR] Dual-Engine Analysis Failed: {str(e)}")
             return None
 
-    async def save_results(self, report: Dict[str, Any], total_reviews: int, limit: int, days: int, engine: str = "Unknown"):
+    async def save_results(self, report: Dict[str, Any], analyzed_count: int, source_total: int, limit: int, days: int, engine: str = "Unknown"):
         # 1. Save JSON files
         os.makedirs(os.path.dirname(self.report_path), exist_ok=True)
         
         timestamp = datetime.datetime.now().isoformat()
         report["metadata"] = {
-            "total_reviews_analyzed": total_reviews,
+            "total_reviews": analyzed_count, # The primary count shown to user
+            "total_source_found": source_total, # The context/pool count
             "review_limit": limit,
             "time_range": days,
             "engine": engine,
@@ -174,10 +176,11 @@ class ReviewAnalyzer:
         if "weekly_pulse" in report:
             pulse = report["weekly_pulse"]
             pulse["timestamp"] = timestamp
-            # Ensure the pulse sub-object also has these for the dashboard UI sync checks
+            # Standardize for frontend display
+            pulse["total_reviews"] = analyzed_count
+            pulse["total_source_found"] = source_total
             pulse["review_limit"] = limit
             pulse["time_range"] = days
-            pulse["total_reviews_analyzed"] = total_reviews
             pulse["analysis_status"] = 'success'
             pulse["engine"] = engine
             

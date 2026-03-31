@@ -16,9 +16,9 @@ interface PulseData {
   quotes: string[];
   action_ideas: string[];
   total_reviews: number;
+  total_source_found?: number;
   review_limit?: number;
   time_range?: number;
-  total_reviews_analyzed?: number;
   timestamp?: string;
   analysis_status?: 'success' | 'failed';
   error_message?: string;
@@ -387,9 +387,12 @@ export default function BrandedDashboard() {
                     />
                   ))}
                 </svg>
-                <div style={{position: 'absolute', textAlign: 'center'}}>
-                  <div style={{fontSize: '1.5rem', fontWeight: '700'}}>{pulse?.total_reviews_analyzed || 0}</div>
-                  <div style={{fontSize: '0.6rem', color: '#94a3b8', textTransform: 'uppercase'}}>of {pulse?.review_limit || 100} Analyzed</div>
+                <div style={{position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'}}>
+                  <span style={{fontSize: '1.5rem', fontWeight: '800', color: '#fff'}}>{pulse?.total_reviews || 0}</span>
+                  <span style={{fontSize: '0.55rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em'}}>Analyzed</span>
+                  {pulse?.total_source_found && (
+                    <span style={{fontSize: '0.5rem', color: '#64748b', marginTop: '2px'}}>out of {pulse.total_source_found}</span>
+                  )}
                 </div>
               </div>
               <div style={{marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
