@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: lip-3-pulse-api
+    runtime: docker
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: DATA_DIR
+        value: /var/lib/pulse/data
+      - key: REPORTS_DIR
+        value: /var/lib/pulse/reports
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: pulse-storage
+      mountPath: /var/lib/pulse
+      sizeGB: 1
