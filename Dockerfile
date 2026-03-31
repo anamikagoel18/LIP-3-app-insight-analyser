@@ -37,4 +37,5 @@ RUN mkdir -p /app/data /app/reports
 EXPOSE 8080
 
 # Step 6: Entry Point (Gunicorn for Production)
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:$PORT
+# We use sh -c to ensure the $PORT environment variable is expanded by the shell
+CMD sh -c "gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:$PORT"
