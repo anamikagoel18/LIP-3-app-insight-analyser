@@ -55,38 +55,32 @@ export default function BrandedDashboard() {
   const [sortBy, setSortBy] = useState<'date' | 'rating'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
-  // New Filter & Pagination State
-  const [timeRange, setTimeRange] = useState('8'); // weeks
+  // Filter & Pagination State
+  const [timeRange, setTimeRange] = useState('8');
   const [limit, setLimit] = useState(75);
   const [page, setPage] = useState(0);
   const itemsPerPage = 10;
-  const hasSynced = useRef(false);
 
+  // Load Filters from LocalStorage on mount
   useEffect(() => {
+    const savedLimit = localStorage.getItem('pulse_limit');
+    const savedTime = localStorage.getItem('pulse_timeRange');
+    if (savedLimit) setLimit(parseInt(savedLimit));
+    if (savedTime) setTimeRange(savedTime);
+    
     fetchPulse();
     fetchStatus();
   }, []);
 
-  // Reset sync flag when a new analysis starts
-  useEffect(() => {
-    if (analyzing || status?.isProcessing) {
-      hasSynced.current = false;
-    }
-  }, [analyzing, status?.isProcessing]);
 
-  // Only sync filters FROM pulse data ONCE on the very first load or after a successful analysis
+  // Persist Filters to LocalStorage
   useEffect(() => {
-    if (pulse && !analyzing && !(status?.isProcessing) && !hasSynced.current) {
-        // We only initialize the filters IF they haven't been manually changed yet
-        // For simplicity: We only sync on the absolute first display of fresh data
-        if (pulse.review_limit) setLimit(Number(pulse.review_limit));
-        if (pulse.time_range !== undefined) {
-          const weeks = Math.round(Number(pulse.time_range) / 7);
-          setTimeRange(weeks > 0 || pulse.time_range === 0 ? weeks.toString() : '8');
-        }
-        hasSynced.current = true;
-    }
-  }, [pulse, analyzing, status?.isProcessing]);
+    localStorage.setItem('pulse_limit', limit.toString());
+    localStorage.setItem('pulse_timeRange', timeRange);
+  }, [limit, timeRange]);
+
+  // Auto-Sync logic removed to prevent user overrides.
+  // Filters now strictly controlled by user and localStorage.
 
 
   useEffect(() => {
@@ -104,6 +98,7 @@ export default function BrandedDashboard() {
   const fetchReviews = async () => {
     try {
       const days = timeRange === 'all' ? 0 : parseInt(timeRange) * 7;
+      console.log(`[NETWORK] Fetching reviews with Limit: ${limit}, Days: ${days}`);
       const res = await fetch(`${API_BASE}/reviews?limit=${limit}&days=${days}`);
       if (res.ok) setReviews(await res.json());
     } catch (err) { console.error('Reviews fetch failed'); }
@@ -117,9 +112,11 @@ export default function BrandedDashboard() {
   };
 
   const handleTrigger = async () => {
+    const days = timeRange === 'all' ? 0 : parseInt(timeRange) * 7;
+    console.log(`[INTELLIGENCE] Triggering Refresh with Payload: { limit: ${limit}, days: ${days} }`);
+    
     setAnalyzing(true);
     try {
-      const days = timeRange === 'all' ? 0 : parseInt(timeRange) * 7;
       await fetch(`${API_BASE}/trigger`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
