@@ -11,17 +11,17 @@ load_dotenv()
 
 class EmailService:
     def __init__(self):
-        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        # Case-insensitive lookup for SMTP variables
+        self.smtp_host = os.getenv("SMTP_HOST") or os.getenv("smtp_host") or "smtp.gmail.com"
         
-        # Robust port parsing to prevent startup crashes
-        raw_port = os.getenv("SMTP_PORT", "587").strip()
+        raw_port = (os.getenv("SMTP_PORT") or os.getenv("smtp_port") or "587").strip()
         try:
             self.smtp_port = int(raw_port) if raw_port else 587
         except ValueError:
             self.smtp_port = 587
             
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_pass = os.getenv("SMTP_PASS")
+        self.smtp_user = os.getenv("SMTP_USER") or os.getenv("smtp_user")
+        self.smtp_pass = os.getenv("SMTP_PASS") or os.getenv("smtp_pass")
         self.sender_label = "INDMONEY Pulse"
 
     def get_pulse_html(self, pulse_data, name="User"):
