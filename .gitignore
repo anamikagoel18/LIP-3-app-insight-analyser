@@ -1,34 +1,29 @@
-# Environment Variables
+# Dependencies
+node_modules/
+dist/
+build/
+.next/
+
+# Environments
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Dependency Directories
-node_modules/
-dist/
-build/
-
-# Next.js Build
-.next/
-out/
-
-# App Data & Logs
-data/*.json
-data/*.db
-data/insights.db
-logs/*.log
+# Logs
 logs/
-reports/*.json
-reports/*.html
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & Reports
+data/
+reports/
+*.db
+*.sqlite
 
 # OS Files
 .DS_Store
 Thumbs.db
-
-# Other
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.vercel

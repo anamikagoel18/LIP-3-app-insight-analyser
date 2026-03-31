@@ -31,11 +31,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Base Paths
+# Base Paths (Environment Aware)
+# Use Project Root as base
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PULSE_PATH = os.path.join(BASE_DIR, "reports", "weekly_pulse.json")
-REPORT_PATH = os.path.join(BASE_DIR, "reports", "weekly_report.json")
-REVIEWS_PATH = os.path.join(BASE_DIR, "data", "processed_reviews.json")
+# Allow overriding data directory via env for persistent volumes (important for Docker/Render)
+DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
+REPORTS_DIR = os.getenv("REPORTS_DIR", os.path.join(BASE_DIR, "reports"))
+
+PULSE_PATH = os.path.join(REPORTS_DIR, "weekly_pulse.json")
+REPORT_PATH = os.path.join(REPORTS_DIR, "weekly_report.json")
+REVIEWS_PATH = os.path.join(DATA_DIR, "processed_reviews.json")
 
 # Global State
 class SystemState:
