@@ -16,6 +16,11 @@ load_dotenv()
 
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
+# --- STARTUP DIAGNOSTICS ---
+print(f"[STARTUP] Environment Port detected as: {os.getenv('PORT', 'NOT SET (Defaulting to 8080)')}")
+print(f"[STARTUP] Python Version: {sys.version}")
+print(f"[STARTUP] Working Directory: {os.getcwd()}")
+
 @app.get("/")
 async def root():
     """Health check endpoint for Railway"""
