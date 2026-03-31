@@ -5,8 +5,10 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "gunicorn -w 2 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8080",
+    "startCommand": "gunicorn -w 2 --log-level debug -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8080",
     "restartPolicyType": "ON_FAILURE",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 60,
     "numReplicas": 1
   }
 }

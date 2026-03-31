@@ -34,9 +34,11 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 
 
 # Ensure directories exist for persistent volumes
-RUN mkdir -p /app/data /app/reports
+RUN mkdir -p /app/data /app/reports && chmod -R 777 /app/data /app/reports
 
 # Step 6: Entry Point (Gunicorn for Production)
 # We force 8080 and reduce workers for maximum stability on Railway
-CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8080"]
+# Added --log-level debug to identify the exact cause of restart loops
+CMD ["sh", "-c", "gunicorn -w 2 --log-level debug -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8080"]
+
 
