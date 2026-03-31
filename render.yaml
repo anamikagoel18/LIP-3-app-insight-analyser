@@ -1,8 +1,9 @@
 services:
   - type: web
     name: lip-3-pulse-api
-    runtime: docker
-    dockerfilePath: Dockerfile
+    runtime: python
+    buildCommand: pip install -r requirements.txt && npm install --omit=dev
+    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:$PORT
     envVars:
       - key: GROQ_API_KEY
         sync: false
@@ -16,13 +17,5 @@ services:
         value: smtp.gmail.com
       - key: SMTP_PORT
         value: "465"
-      - key: DATA_DIR
-        value: /var/lib/pulse/data
-      - key: REPORTS_DIR
-        value: /var/lib/pulse/reports
       - key: NODE_ENV
         value: production
-    disk:
-      name: pulse-storage
-      mountPath: /var/lib/pulse
-      sizeGB: 1
