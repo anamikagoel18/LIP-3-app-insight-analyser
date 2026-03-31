@@ -1,6 +1,6 @@
 # --- Multi-Runtime Dockerfile (Python + Node.js) ---
-# Base Image: Python 3.10-slim
-FROM python:3.10-slim
+# Base Image: Python 3.11-slim (Resolves Google API deprecation warnings)
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -25,18 +25,17 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Step 5: Environment Variables (Standard Defaults)
-ENV PORT=8000
 ENV PYTHONPATH=/app
 ENV DATA_DIR=/app/data
 ENV REPORTS_DIR=/app/reports
 ENV PYTHONIOENCODING=utf-8
 ENV LANG=C.UTF-8
+ENV PYTHONWARNINGS="ignore::FutureWarning"
 
 
 # Ensure directories exist for persistent volumes
 RUN mkdir -p /app/data /app/reports
 
 # Step 6: Entry Point (Gunicorn for Production)
-# We use 'sh -c' to ensure the $PORT environment variable is correctly expanded by the shell
-CMD sh -c "gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:$PORT"
-
+# We trust Railway to provide the $PORT variable
+CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
