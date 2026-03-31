@@ -24,8 +24,8 @@ RUN npm ci --omit=dev
 # Step 4: Copy Application Code
 COPY . .
 
-# Step 5: Environment Variables & Port
-ENV PORT=8080
+# Step 5: Environment Variables (Standard Defaults)
+ENV PORT=8000
 ENV PYTHONPATH=/app
 ENV DATA_DIR=/app/data
 ENV REPORTS_DIR=/app/reports
@@ -33,9 +33,7 @@ ENV REPORTS_DIR=/app/reports
 # Ensure directories exist for persistent volumes
 RUN mkdir -p /app/data /app/reports
 
-# Expose the API port
-EXPOSE 8080
-
 # Step 6: Entry Point (Gunicorn for Production)
-# We use a fixed port 8000 to ensure stability across all cloud platforms
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:8000
+# We use 'sh -c' to ensure the $PORT environment variable is correctly expanded by the shell
+CMD sh -c "gunicorn -w 4 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:$PORT"
+
