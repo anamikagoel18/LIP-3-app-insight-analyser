@@ -29,6 +29,9 @@ ENV PORT=8000
 ENV PYTHONPATH=/app
 ENV DATA_DIR=/app/data
 ENV REPORTS_DIR=/app/reports
+ENV PYTHONIOENCODING=utf-8
+ENV LANG=C.UTF-8
+
 
 # Ensure directories exist for persistent volumes
 RUN mkdir -p /app/data /app/reports

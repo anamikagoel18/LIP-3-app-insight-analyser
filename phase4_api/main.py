@@ -16,12 +16,14 @@ load_dotenv()
 
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
-# Force UTF-8 encoding for Windows console to prevent 'charmap' errors with emojis
-if sys.platform == "win32":
-    try:
+# --- HARDEN UTF-8 ENCODING ---
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
-    except:
-        pass
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8')
+except (AttributeError, Exception):
+    pass
 
 # CORS configuration
 app.add_middleware(
@@ -242,17 +244,13 @@ async def get_status():
     return metadata
 
 @app.post("/api/email")
-async def send_email(req: EmailRequest):
+async def send_email(req: EmailRequest, background_tasks: BackgroundTasks):
     if not req.email:
         raise HTTPException(status_code=400, detail="Recipient email is required.")
     
-    # We run this synchronously for immediate feedback or use background task?
-    # User wanted to know IF it works, so let's run it and return the result.
-    success, message = await email_service.send_weekly_pulse(req.email, req.name)
-    if success:
-        return {"message": f"Pulse delivered to {req.name or req.email}."}
-    else:
-        raise HTTPException(status_code=500, detail=message)
+    # Send in background to prevent timeout crashes
+    background_tasks.add_task(email_service.send_weekly_pulse, req.email, req.name)
+    return {"message": f"Pulse delivery for {req.name or req.email} has been scheduled."}
 
 @app.get("/api/test-email")
 async def test_email():
