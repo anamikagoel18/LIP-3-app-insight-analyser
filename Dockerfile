@@ -37,9 +37,9 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 RUN mkdir -p /app/data /app/reports && chmod -R 777 /app/data /app/reports
 
 # Step 6: Entry Point (Gunicorn for Production)
-# We use dynamic port binding to ensure compatibility with Railway's network
-# Added --log-level debug to identify the exact cause of restart loops
-CMD ["sh", "-c", "gunicorn -w 2 --log-level debug -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+# Standardized Gunicorn startup that perfectly follows Railway's dynamic port assignment
+CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+
 
 
 
