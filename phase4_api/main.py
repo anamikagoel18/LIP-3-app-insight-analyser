@@ -17,16 +17,19 @@ load_dotenv()
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
 # --- STARTUP DIAGNOSTICS ---
-print(f"[STARTUP] Environment Port detected as: {os.getenv('PORT', 'NOT SET (Defaulting to 8080)')}")
-print(f"[STARTUP] Python Version: {sys.version}")
-print(f"[STARTUP] Working Directory: {os.getcwd()}")
+# Railway sometimes uses 'PORT' or 'RAILWAY_TCP_PROXY_PORT'
+env_port = os.getenv('PORT') or os.getenv('RAILWAY_TCP_PROXY_PORT') or '8080'
+print(f"[STARTUP] DETECTED PORT: {env_port}")
+print(f"[STARTUP] COMMAND LINE: {sys.argv}")
+print(f"[STARTUP] PYTHON PATH: {sys.path[:3]}")
 
 @app.get("/")
 async def root():
-    """Health check endpoint for Railway"""
+    """Health check heartbeat for Railway"""
     return {
         "status": "online",
-        "service": "indmoney-pulse-api",
+        "port": env_port,
+        "worker_pid": os.getpid(),
         "timestamp": datetime.datetime.now().isoformat()
     }
 

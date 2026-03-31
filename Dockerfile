@@ -37,8 +37,9 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 RUN mkdir -p /app/data /app/reports && chmod -R 777 /app/data /app/reports
 
 # Step 6: Entry Point (Gunicorn for Production)
-# Standardized Gunicorn startup that perfectly follows Railway's dynamic port assignment
-CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+# Standardized Gunicorn startup with 120s timeout and dynamic port binding
+CMD ["sh", "-c", "gunicorn -w 2 --timeout 120 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+
 
 
 
