@@ -1,0 +1,38 @@
+{
+  "name": "lip-3-app-insight-analyser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "phase4_api/server.js",
+  "scripts": {
+    "start": "node phase4_api/server.js",
+    "pipeline:full": "node phase1_data_ingestion/run.js && node phase2_processing/run.js && node phase3_analysis/run.js",
+    "phase1": "node phase1_data_ingestion/run.js",
+    "phase2": "node phase2_processing/run.js",
+    "phase3": "node phase3_analysis/run.js",
+    "scheduler": "node phase6_utils/scheduler.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anamikagoel18/LIP-3-app-insight-analyser.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/anamikagoel18/LIP-3-app-insight-analyser/issues"
+  },
+  "homepage": "https://github.com/anamikagoel18/LIP-3-app-insight-analyser#readme",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "google-play-scraper": "^10.1.2",
+    "groq-sdk": "^1.1.2",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.3",
+    "winston": "^3.19.0"
+  }
+}

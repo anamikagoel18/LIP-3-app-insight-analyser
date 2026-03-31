@@ -1,0 +1,38 @@
+name: Weekly Pulse Automator
+
+on:
+  schedule:
+    # 06:45 AM UTC = 12:15 PM IST (Every Tuesday)
+    - cron: '45 6 * * 2'
+  workflow_dispatch:
+    # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  intelligence_dispatch:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute Intelligence Pulse
+        env:
+          # CRITICAL: Map these in GitHub Repo Settings > Secrets > Actions
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          DB_PATH: ./data/insights.db
+          LOG_LEVEL: info
+        run: node phase6_utils/cloud_run.js

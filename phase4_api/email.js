@@ -1,0 +1,110 @@
+const nodemailer = require('nodemailer');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
+
+class EmailService {
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_PORT == 465, 
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+
+  async sendWeeklyPulse(recipientEmail, recipientName) {
+    const pulsePath = path.join(__dirname, '../reports/weekly_pulse.json');
+    const targetEmail = recipientEmail || process.env.EMAIL_RECEIVER;
+    const name = recipientName || 'User';
+    
+    if (!fs.existsSync(pulsePath)) {
+      console.error('EmailService Error: weekly_pulse.json not found.');
+      return false;
+    }
+
+    try {
+      const pulseData = JSON.parse(fs.readFileSync(pulsePath, 'utf8'));
+      
+      const htmlContent = `
+        <div style="background-color: #020617; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #f8fafc; padding: 40px 20px;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <!-- Branded Header -->
+            <div style="text-align: center; margin-bottom: 40px;">
+              <div style="display: inline-block; background: #3b82f6; padding: 10px; border-radius: 8px; margin-bottom: 16px;">
+                <img src="https://img.icons8.com/isometric/50/ffffff/area-chart.png" width="24" height="24" style="display: block;"/>
+              </div>
+              <h1 style="font-size: 20px; font-weight: 800; letter-spacing: 0.1em; margin: 0; color: #fff;">INDMONEY PULSE</h1>
+              <p style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.2em; margin-top: 8px;">Institutional Sentiment Intelligence</p>
+            </div>
+
+            <!-- Header Section -->
+            <div style="background: #1c212b; border-radius: 12px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+              <p style="font-size: 15px; margin: 0;">Hi <strong>${name}</strong>,</p>
+              <p style="font-size: 14px; color: #94a3b8; line-height: 1.6; margin-top: 12px;">
+                Our AI engine has synthesized the latest feedback stream from the **past 7 days**. Analyzed all **${pulseData.total_reviews || 0} reviews** found in this window. Here are your prioritized strategic insights.
+              </p>
+            </div>
+
+            <!-- Discovery Clusters -->
+            <div style="margin-bottom: 40px;">
+              <h2 style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 20px;">TOP 3 FEEDBACK THEMES</h2>
+              ${pulseData.top_themes.slice(0, 3).map((t, i) => `
+                <div style="background: #1c212b; padding: 20px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${['#3b82f6', '#a855f7', '#f97316'][i]};">
+                  <h3 style="font-size: 14px; font-weight: 600; color: #fff; margin: 0 0 4px 0;">${t.name} (${t.count || 0} reviews)</h3>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Signal Extraction -->
+            <div style="margin-bottom: 40px;">
+              <h2 style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 20px;">VOICE OF THE USER</h2>
+              ${pulseData.quotes.slice(0, 3).map((q, i) => `
+                <div style="background: #1c212b; padding: 20px; border-radius: 12px; margin-bottom: 12px; border-left: 1px solid rgba(168, 85, 247, 0.3);">
+                  <p style="font-size: 13px; color: #cbd5e1; font-style: italic; line-height: 1.6; margin: 0;">"${q}"</p>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Strategic Actions -->
+            <div style="margin-bottom: 40px;">
+              <h2 style="font-size: 11px; font-weight: 700; color: #f97316; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 20px;">Strategic Action Pulse</h2>
+              <div style="background: #1c212b; border-radius: 12px; padding: 8px;">
+                ${pulseData.action_ideas.slice(0, 3).map(a => `
+                  <div style="padding: 16px 20px; display: table; width: 100%;">
+                    <span style="display: table-cell; width: 24px; color: #f97316; font-weight: 700;">✦</span>
+                    <span style="display: table-cell; font-size: 13px; color: #f8fafc; line-height: 1.5;">${a}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 32px; margin-top: 40px;">
+              <p style="font-size: 11px; color: #64748b; margin: 0;">Generated by App Insight AI Intelligence</p>
+              <p style="font-size: 10px; color: #475569; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.1em;">© ${new Date().getFullYear()} INDMONEY Pulse. Ver: 3.5.0</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: `"INDMONEY Pulse" <${process.env.SMTP_USER}>`,
+        to: targetEmail,
+        subject: `Weekly Pulse: ${pulseData.top_themes[0] ? pulseData.top_themes[0].name : 'Latest Insights'}`,
+        html: htmlContent,
+      });
+
+      console.log(`Email successfully sent to ${targetEmail}`);
+      return true;
+    } catch (error) {
+      console.error('EmailService Critical Failure:', error);
+      return false;
+    }
+  }
+}
+
+module.exports = new EmailService();
