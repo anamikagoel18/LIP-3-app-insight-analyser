@@ -16,6 +16,15 @@ load_dotenv()
 
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
+@app.get("/")
+async def root():
+    """Health check endpoint for Railway"""
+    return {
+        "status": "online",
+        "service": "indmoney-pulse-api",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
 # --- HARDEN UTF-8 ENCODING ---
 try:
     if hasattr(sys.stdout, 'reconfigure'):
@@ -139,7 +148,9 @@ async def run_pipeline(limit: int, days: int):
                 source_reviews.sort(key=lambda x: parse_date(x.get("date")), reverse=True)
                 target_reviews = source_reviews[:limit]
                 
-                # 3. Run Analysis Natively
+                # 3. Run Analysis Natively (Lazy-load analyzer for stability)
+                from .analysis import ReviewAnalyzer
+                analyzer = ReviewAnalyzer()
                 report, error_msg = await analyzer.run_analysis(target_reviews, limit=limit, days=days)
                 
                 if report:
