@@ -12,7 +12,14 @@ load_dotenv()
 class EmailService:
     def __init__(self):
         self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", 587))
+        
+        # Robust port parsing to prevent startup crashes
+        raw_port = os.getenv("SMTP_PORT", "587").strip()
+        try:
+            self.smtp_port = int(raw_port) if raw_port else 587
+        except ValueError:
+            self.smtp_port = 587
+            
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
         self.sender_label = "INDMONEY Pulse"
