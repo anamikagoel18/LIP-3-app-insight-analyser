@@ -171,14 +171,36 @@ try:
                 # Filter Logic
                 filtered_df = pd.DataFrame(all_rd)
                 if not filtered_df.empty:
-                    # Date formatting for sorting
-                    filtered_df['Date'] = pd.to_datetime(filtered_df['at']).dt.strftime('%Y-%m-%d')
-                    filtered_df = filtered_df[filtered_df['score'].isin(rating_filter)]
-                    if theme_filter != "All":
-                        filtered_df = filtered_df[filtered_df['content'].str.contains(theme_filter, case=False, na=False)]
+                    # Align with Processor.py schema (date, rating, text)
+                    date_col = 'date' if 'date' in filtered_df.columns else 'at'
+                    rating_col = 'rating' if 'rating' in filtered_df.columns else 'score'
+                    content_col = 'text' if 'text' in filtered_df.columns else 'content'
+
+                    if date_col in filtered_df.columns:
+                        filtered_df['Date'] = pd.to_datetime(filtered_df[date_col]).dt.strftime('%Y-%m-%d')
+                    else:
+                        filtered_df['Date'] = "N/A"
+
+                    # Apply Filter
+                    if rating_col in filtered_df.columns:
+                        filtered_df = filtered_df[filtered_df[rating_col].isin(rating_filter)]
                     
+                    if theme_filter != "All" and content_col in filtered_df.columns:
+                        filtered_df = filtered_df[filtered_df[content_col].str.contains(theme_filter, case=False, na=False)]
+                    
+                    # Select and rename for display
+                    display_cols = ['Date']
+                    rename_dict = {}
+                    
+                    if rating_col in filtered_df.columns:
+                        display_cols.append(rating_col)
+                        rename_dict[rating_col] = 'Rating'
+                    if content_col in filtered_df.columns:
+                        display_cols.append(content_col)
+                        rename_dict[content_col] = 'Review'
+
                     st.dataframe(
-                        filtered_df[['Date', 'score', 'content']].rename(columns={'score': 'Rating', 'content': 'Review'}),
+                        filtered_df[display_cols].rename(columns=rename_dict),
                         use_container_width=True,
                         hide_index=True
                     )
