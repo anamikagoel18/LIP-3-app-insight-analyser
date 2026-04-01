@@ -62,9 +62,9 @@ class ReviewAnalyzer:
         """
 
         try:
-            chat_completion = await self.client.chat.completions.create(
+            chat_completion = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model=self.model,
+                model=self.groq_model,
                 response_format={"type": "json_object"}
             )
             

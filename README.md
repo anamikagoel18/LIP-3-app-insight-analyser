@@ -1,43 +1,51 @@
-# App Insight Analyser - Data Pipeline Architecture
+# INDmoney Pulse - Intelligence Dashboard (Cloud Optimized)
 
 ## Overview
-This project implements a structured data pipeline for analyzing INDmoney app reviews. Each phase is independent, has a clear responsibility, and communicates via standardized JSON files.
+This project provides a professional, AI-driven command center for analyzing INDmoney app reviews. It performs automated sentiment analysis, theme extraction, and strategic reporting using a unified data pipeline and a premium Streamlit dashboard.
 
-## Data Pipeline Flow
-1. **Phase 1: Ingestion** (`phase1_data_ingestion`)
-   - Fetches reviews from Google Play Store.
-   - Output: `data/raw_reviews.json`.
-2. **Phase 2: Processing** (`phase2_processing`)
-   - Cleans, normalizes, and deduplicates reviews.
-   - Output: `data/processed_reviews.json`.
-3. **Phase 3: Analysis** (`phase3_analysis`)
-   - Generates sentiment counts and keyword insights.
-   - Output: `reports/weekly_report.json`.
-4. **Phase 4: API Server** (`phase4_api`)
-   - Serves the processed data and reports via REST.
-5. **Phase 5: Next.js Dashboard** (`phase5_nextjs`)
-   - Branded "INDMONEY Pulse" command center.
-6. **Phase 6: Utilities & Scheduler** (`phase6_utils`)
-   - Shared logging, DB, and **Hub for Automated Scheduling**.
+## Services & Access
+The project is optimized for both local execution and **Streamlit Cloud Deployment**.
 
-## How to Run the Pipeline
+- **📊 Unified Dashboard**: [http://localhost:8501](http://localhost:8501) (Streamlit Standalone)
+- **🧠 Intelligence API**: (Optional) `phase4_api/main.py` is still available for external API access.
 
-### Manual Step-by-Step
+## How to Run Locally
+
+### 1. Setup Environment
+Ensure your `.env` file contains your `GROQ_API_KEY` and `GEMINI_API_KEY`.
+
+### 2. Start Dashboard
 ```bash
-node phase1_data_ingestion/run.js
-node phase2_processing/run.js
-node phase3_analysis/run.js
+# Install dependencies
+pip install -r requirements.txt
+npm install
+
+# Run the standalone dashboard
+streamlit run streamlit_app.py
 ```
 
-### Automated Full Pipeline
-```bash
-npm run pipeline:full
+## ☁️ Deployment to Streamlit Cloud
+
+This project is "Deploy Ready" for Streamlit Cloud.
+
+### 1. Connect Repository
+- Push this code to GitHub.
+- Connect your repository in the [Streamlit Cloud Dashboard](https://share.streamlit.io/).
+- Set the main file path to `streamlit_app.py`.
+
+### 2. Configure Secrets
+In the Streamlit Cloud settings for your app, add the following to **Secrets**:
+```toml
+GROQ_API_KEY = "your_key_here"
+GEMINI_API_KEY = "your_key_here"
+SMTP_USER = "your_email@gmail.com"
+SMTP_PASS = "your_app_password"
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = 587
 ```
 
-### Start Services
-- **Backend (Python)**: `python -m phase4_api.main`
-- **Frontend (Next.js)**: `cd phase5_nextjs && npm run dev`
-- **Weekly Scheduler**: `npm run scheduler` (Triggers every Tue at 12:15 PM IST)
-
-## Configuration
-Update the `.env` file with your environment variables (PORT, etc.).
+### 3. Automatic Environment Setup
+The app will automatically:
+- Detect the cloud environment.
+- Install Node.js via `packages.txt`.
+- Run `npm install` on first startup to initialize the review-fetching pipeline.
