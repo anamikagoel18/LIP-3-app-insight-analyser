@@ -21,6 +21,8 @@ st.set_page_config(
 try:
     load_dotenv()
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    P_PATH = os.path.join(BASE_DIR, "reports", "weekly_pulse.json")
+    R_PATH = os.path.join(BASE_DIR, "data", "processed_reviews.json")
     if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
 
     from phase1_data_ingestion.native_fetcher import native_fetcher
@@ -145,9 +147,6 @@ try:
                 st.error(_r[1])
 
     # --- CONTENT ---
-    P_PATH = os.path.join(BASE_DIR, "reports", "weekly_pulse.json")
-    R_PATH = os.path.join(BASE_DIR, "data", "processed_reviews.json")
-
     if os.path.exists(P_PATH):
         with open(P_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
