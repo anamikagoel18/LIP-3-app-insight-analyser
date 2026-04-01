@@ -35,10 +35,8 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 
 # Ensure directories exist for persistent volumes
 RUN mkdir -p /app/data /app/reports && chmod -R 777 /app/data /app/reports
-
-# Step 6: Entry Point (Gunicorn for Production)
-# Standardized Gunicorn startup with 120s timeout and dynamic port binding
-CMD ["sh", "-c", "gunicorn -w 2 --timeout 120 -k uvicorn.workers.UvicornWorker phase4_api.main:app --bind 0.0.0.0:${PORT:-8080}"]
+# Step 6: Entry Point (Direct Uvicorn for Stability)
+CMD ["sh", "-c", "python -m uvicorn phase4_api.main:app --host 0.0.0.0 --port $PORT --workers 1"]
 
 
 

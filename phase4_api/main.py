@@ -16,6 +16,16 @@ load_dotenv()
 
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
+# --- STARTUP DIAGNOSTICS ---
+import datetime
+print("="*50)
+print(f"[STARTUP] TIME: {datetime.datetime.now().isoformat()}")
+print(f"[STARTUP] PORT ENV: {os.getenv('PORT')}")
+print(f"[STARTUP] WORKER PID: {os.getpid()}")
+print(f"[STARTUP] DATA_DIR: {os.getenv('DATA_DIR', '/app/data')}")
+print(f"[STARTUP] GEMINI_KEY: {'Found' if os.getenv('GEMINI_API_KEY') else 'Missing'}")
+print("="*50)
+
 @app.get("/")
 async def root():
     """Welcome endpoint for the INDmoney Pulse API"""
