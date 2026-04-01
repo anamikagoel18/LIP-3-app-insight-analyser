@@ -94,12 +94,13 @@ class ReviewAnalyzer:
         prompt = f"""
         Generate a comprehensive Strategic Intelligence Report (Weekly Pulse) based on these {analyzed_count} app reviews.
         
-        OUTPUT SECTIONS:
-        Executive Briefing: Sentiment summary.
-        Top 3 Themes: Cluster name, status, and impact.
-        3 Quotes: Verbatim anonymized quotes.
-        3 Strategic Actions: Product improvement ideas.
-        Draft Email: Complete stakeholder email.
+        CRITICAL OUTPUT SECTIONS (Total Briefing MUST BE ≤ 250 WORDS):
+        1. Executive Briefing: High-level sentiment and trend summary.
+        2. Top 3 Themes: Cluster name, description, and review count.
+        3. 3 Quotes: Verbatim representative quotes (Anonymized, 1-2 lines each).
+        4. 3 Strategic Actions: CLEAR product-focused tasks. Each task MUST include:
+           - Priority: High, Medium, or Low.
+           - Theme: Which of the Top 3 themes it resolves.
         
         REVIEWS:
         {review_data}
@@ -107,12 +108,11 @@ class ReviewAnalyzer:
         Return ONLY a JSON object:
         {{
           "summary": "string",
-          "top_themes": [{{ "theme": "string", "status": "string", "impact": "string" }}],
           "weekly_pulse": {{
             "total_reviews": {analyzed_count},
             "top_themes": [{{ "name": "string", "description": "string", "count": number }}],
             "quotes": ["string"],
-            "action_ideas": ["string"],
+            "action_ideas": [{{ "task": "string", "priority": "High|Medium|Low", "theme": "string" }}],
             "summary": "string",
             "draft_email": "string"
           }}
