@@ -94,14 +94,13 @@ class ReviewAnalyzer:
         prompt = f"""
         Generate a comprehensive Strategic Intelligence Report (Weekly Pulse) based on these {analyzed_count} app reviews.
         
-        CRITICAL OUTPUT SECTIONS (Total Briefing MUST BE ≤ 250 WORDS):
+        CRITICAL OUTPUT SECTIONS (Total Briefing MUST BE ≤ 400 WORDS):
         1. Executive Briefing: High-level sentiment and trend summary.
         2. Top 3 Themes: Cluster name, description, and review count.
         3. 3 Quotes: Verbatim representative quotes (Anonymized, 1-2 lines each).
-        4. 3 Strategic Actions: CLEAR product-focused tasks. Each task MUST include:
-           - Priority: High, Medium, or Low.
-           - Theme: Which of the Top 3 themes it resolves.
-        
+        4. 3 Strategic Actions: CLEAR tasks with Priority and Theme references.
+        5. CATEGORIZATION: Map each review below to the most relevant Theme from your Top 3 list.
+
         REVIEWS:
         {review_data}
         
@@ -113,6 +112,7 @@ class ReviewAnalyzer:
             "top_themes": [{{ "name": "string", "description": "string", "count": number }}],
             "quotes": ["string"],
             "action_ideas": [{{ "task": "string", "priority": "High|Medium|Low", "theme": "string" }}],
+            "review_mapping": [{{ "text": "string", "theme": "string" }}],
             "summary": "string",
             "draft_email": "string"
           }}
@@ -202,7 +202,20 @@ class ReviewAnalyzer:
             pulse["time_range"] = days
             pulse["analysis_status"] = 'success'
             pulse["engine"] = engine
-            pulse["reviews"] = reviews if reviews else []
+            # Apply Semantic Theme Mapping
+            final_reviews = reviews if reviews else []
+            mapping = pulse.get("review_mapping", [])
+            if mapping and final_reviews:
+                for r in final_reviews:
+                    r_text = r.get("text", "").lower()
+                    for m in mapping:
+                        m_text = m.get("text", "").lower()
+                        # Match if mapping text is a significant part of the review
+                        if m_text and (m_text in r_text or (len(m_text) > 20 and m_text[:20] in r_text)):
+                            r["theme"] = m.get("theme")
+                            break
+            
+            pulse["reviews"] = final_reviews
             
             with open(self.pulse_path, 'w', encoding='utf-8') as f:
                 json.dump(pulse, f, indent=2)

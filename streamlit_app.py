@@ -50,43 +50,51 @@ try:
             return _res if isinstance(_res, (list, tuple)) else [False, "Err"]
         except Exception as _e: return [False, str(_e)]
 
-    async def pipeline_task(limit, days, status_placeholder):
+    async def pipeline_task(limit, days, status_placeholder, force=False):
         st.session_state.is_processing = True
+        if force:
+            st.cache_data.clear()
+            
         try:
-            # Explicit status container for better UX
-            with status_placeholder.container():
-                st.info(f"📊 **Analyzing {limit} reviews ({days}-day range)...**")
+            # Using new st.status for premium progress tracking
+            with status_placeholder.status(f"Processing Pulse Analysis...", expanded=True) as status:
+                status.write(f"📊 **Preparing to analyze {limit} reviews ({days}-day window)...**")
                 
                 # Step 1: Fetch
-                st.write("📡 **Connecting to Google Play Store...**")
+                status.write("📡 **Connecting to Google Play Store...**")
                 raw = await asyncio.to_thread(fetch_reviews_cached, limit, days)
                 
                 if not raw: 
+                    status.update(label="No Data Found", state="error")
                     return [False, f"No reviews found in the past {days} days. Try increasing the 'Range' slider."]
                 
-                st.write(f"📂 **Retrieval Complete.** Processing {len(raw)} raw reviews...")
+                status.write(f"📂 **Retrieval Complete.** Processing {len(raw)} raw reviews...")
                 proc = await asyncio.to_thread(processor.process, raw)
                 if not proc:
-                    return [False, f"Found {len(raw)} raw reviews, but none were descriptive enough for analysis. Try a higher Limit."]
+                    status.update(label="Processing Failed", state="error")
+                    return [False, f"Found {len(raw)} raw reviews, but none were descriptive enough for analysis."]
                 
-                # Step 3: Analyze
-                if not analyzer_engine: return [False, "AI Engine Offline. Check environment variables."]
+                # Step 2: Analyze
+                if not analyzer_engine: 
+                    status.update(label="AI Engine Error", state="error")
+                    return [False, "AI Engine Offline. Check environment variables."]
                 
                 target_count = len(proc[:limit])
-                st.write(f"🧠 Analyzing {target_count} signals with AI...")
+                status.write(f"🧠 **Synthesizing {target_count} signals with AI...**")
                 
                 # FIX: Catch actual error message from the analyzer
                 res, err = await analyzer_engine.run_analysis(proc[:limit], limit=limit, days=days)
                 
                 if res and not err:
+                    status.update(label="Analysis Complete!", state="complete", expanded=False)
                     return [True, "Success"]
                 else:
+                    status.update(label="Intelligence Failed", state="error")
                     return [False, err or "Intelligence result returned empty."]
         except Exception as _e: 
             return [False, str(_e)]
         finally: 
             st.session_state.is_processing = False
-            status_placeholder.empty()
 
     # --- UI RENDERER ---
     st.title("Strategic Insight Dashboard")
@@ -94,20 +102,41 @@ try:
     with st.sidebar:
         st.header("Controls")
         if 'is_processing' not in st.session_state: st.session_state.is_processing = False
-        _lim = st.slider("Limit", 50, 500, 100)
-        _days = st.select_slider("Range", options=[7, 30, 90], value=30)
+        # Sliders
+        _lim = st.slider("Review Limit", 50, 500, 100)
+        _days = st.select_slider("Time Window (Days)", options=[7, 30, 90], value=30)
         
+        # Cache Control
+        _force = st.checkbox("🔄 Force Fresh Fetch", help="Bypass local cache and query Play Store for live data.")
+        
+        # Sync Status Logic
+        needs_update = False
+        if os.path.exists(P_PATH):
+            with open(P_PATH, 'r') as f:
+                try:
+                    c_rep = json.load(f)
+                    if _lim != c_rep.get("review_limit", 100) or _days != c_rep.get("time_range", 30):
+                        needs_update = True
+                        st.warning("⚠️ **Selection Changed** - Hit Analyze Signal to refresh.")
+                except: pass
+
         col1, col2 = st.columns([4, 1])
         with col1:
-            btn_analyze = st.button("🚀 Analyze Signal", use_container_width=True, disabled=st.session_state.is_processing)
+            btn_analyze = st.button(
+                "🚀 Analyze Signal", 
+                use_container_width=True, 
+                disabled=st.session_state.is_processing,
+                type="primary" if needs_update else "secondary"
+            )
         with col2:
             if st.button("🧹", help="Clear Cache"):
                 st.cache_data.clear()
                 st.toast("Cache Cleared!")
 
+        status_p = st.empty()
+        
         if btn_analyze:
-            status_p = st.sidebar.empty()
-            _r = run_async(pipeline_task(_lim, _days, status_p))
+            _r = run_async(pipeline_task(_lim, _days, status_p, force=_force))
             if _r[0]: 
                 st.success("Complete!")
                 time.sleep(0.5)
@@ -203,8 +232,15 @@ try:
                     if rating_col in filtered_df.columns:
                         filtered_df = filtered_df[filtered_df[rating_col].isin(rating_filter)]
                     
-                    if theme_filter != "All" and content_col in filtered_df.columns:
-                        filtered_df = filtered_df[filtered_df[content_col].str.contains(theme_filter, case=False, na=False)]
+                    if theme_filter != "All":
+                        # SEMANTIC FILTRATION: Use AI-assigned theme category if available, fallback to text search
+                        if 'theme' in filtered_df.columns and filtered_df['theme'].notna().any():
+                            filtered_df = filtered_df[
+                                (filtered_df['theme'] == theme_filter) | 
+                                (filtered_df[content_col].str.contains(theme_filter, case=False, na=False))
+                            ]
+                        elif content_col in filtered_df.columns:
+                            filtered_df = filtered_df[filtered_df[content_col].str.contains(theme_filter, case=False, na=False)]
                     
                     # Select and rename for display
                     display_cols = ['Date']
