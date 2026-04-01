@@ -36,7 +36,7 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 # Ensure directories exist for persistent volumes
 RUN mkdir -p /app/data /app/reports && chmod -R 777 /app/data /app/reports
 # Step 6: Entry Point (Direct Uvicorn for Stability)
-CMD ["sh", "-c", "python -m uvicorn phase4_api.main:app --host 0.0.0.0 --port $PORT --workers 1"]
+CMD ["python", "-m", "uvicorn", "phase4_api.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
 
 
 

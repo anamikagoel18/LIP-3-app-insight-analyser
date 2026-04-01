@@ -9,31 +9,36 @@ from pydantic import BaseModel
 from typing import List, Optional
 import aiofiles
 from dotenv import load_dotenv
+
+# --- CRITICAL: Load environment variables BEFORE anything else ---
+load_dotenv()
+
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
+# --- INSTANT HEALTH HEARTBEAT (Before Middlewares) ---
+@app.get("/api/health")
+async def health_check():
+    """Ultra-lightweight heartbeat to pass container probes"""
+    return {"status": "healthy", "timestamp": datetime.datetime.now().isoformat()}
+
+@app.get("/")
+async def root_redirect():
+    return {"message": "INDmoney Pulse API is active.", "docs": "/docs"}
+
 # --- STARTUP DIAGNOSTICS ---
-import datetime
 print("="*50)
 print(f"[STARTUP] TIME: {datetime.datetime.now().isoformat()}")
 print(f"[STARTUP] PORT ENV: {os.getenv('PORT')}")
-print(f"[STARTUP] WORKER PID: {os.getpid()}")
+print(f"[STARTUP] DATA_DIR: {os.getenv('DATA_DIR')}")
 print("="*50)
 
-# --- INSTANT HEALTH CHECK (PRIORITY) ---
-@app.get("/api/health")
-async def health_check():
-    """Lightweight health check that returns immediately to pass Railway probes"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.datetime.now().isoformat()
-    }
-
-@app.get("/")
-async def root():
-    return {
-        "message": "INDmoney Pulse FastAPI Backend is active.",
-        "docs": "/docs"
-    }
+# --- MIDDLEWARE & CONFIG ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- LAZY SERVICE INITIALIZATION ---
 _analyzer = None
@@ -63,14 +68,6 @@ try:
         sys.stderr.reconfigure(encoding='utf-8')
 except (AttributeError, Exception):
     pass
-
-# CORS configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Base Paths (Environment Aware)
 # Use Project Root as base
