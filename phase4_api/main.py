@@ -9,11 +9,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 import aiofiles
 from dotenv import load_dotenv
-from phase4_api.email_service import email_service
-
-# Load Environment Variables
-load_dotenv()
-
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
 # --- STARTUP DIAGNOSTICS ---
@@ -22,28 +17,43 @@ print("="*50)
 print(f"[STARTUP] TIME: {datetime.datetime.now().isoformat()}")
 print(f"[STARTUP] PORT ENV: {os.getenv('PORT')}")
 print(f"[STARTUP] WORKER PID: {os.getpid()}")
-print(f"[STARTUP] DATA_DIR: {os.getenv('DATA_DIR', '/app/data')}")
-print(f"[STARTUP] GEMINI_KEY: {'Found' if os.getenv('GEMINI_API_KEY') else 'Missing'}")
 print("="*50)
+
+# --- INSTANT HEALTH CHECK (PRIORITY) ---
+@app.get("/api/health")
+async def health_check():
+    """Lightweight health check that returns immediately to pass Railway probes"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
 @app.get("/")
 async def root():
-    """Welcome endpoint for the INDmoney Pulse API"""
     return {
         "message": "INDmoney Pulse FastAPI Backend is active.",
-        "status": "online",
-        "docs": "/docs",
-        "timestamp": datetime.datetime.now().isoformat()
+        "docs": "/docs"
     }
 
-@app.get("/api/health")
-async def health_check():
-    """Dedicated health check heartbeat for Railway deployment"""
-    return {
-        "status": "healthy",
-        "port": os.getenv('PORT', '8080'),
-        "timestamp": datetime.datetime.now().isoformat()
-    }
+# --- LAZY SERVICE INITIALIZATION ---
+_analyzer = None
+_email_service = None
+
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        print("[LAZY] Initializing ReviewAnalyzer...")
+        from .analysis import ReviewAnalyzer
+        _analyzer = ReviewAnalyzer()
+    return _analyzer
+
+def get_email_service():
+    global _email_service
+    if _email_service is None:
+        print("[LAZY] Initializing EmailService...")
+        from .email_service import EmailService
+        _email_service = EmailService()
+    return _email_service
 
 # --- HARDEN UTF-8 ENCODING ---
 try:
@@ -164,9 +174,8 @@ async def run_pipeline(limit: int, days: int):
                 source_reviews.sort(key=lambda x: parse_date(x.get("date")), reverse=True)
                 target_reviews = source_reviews[:limit]
                 
-                # 3. Run Analysis Natively (Lazy-load analyzer for stability)
-                from .analysis import ReviewAnalyzer
-                analyzer = ReviewAnalyzer()
+                # 3. Use Lazy Analyzer
+                analyzer = get_analyzer()
                 report, error_msg = await analyzer.run_analysis(target_reviews, limit=limit, days=days)
                 
                 if report:
@@ -275,14 +284,16 @@ async def send_email(req: EmailRequest, background_tasks: BackgroundTasks):
     if not req.email:
         raise HTTPException(status_code=400, detail="Recipient email is required.")
     
-    # Send in background to prevent timeout crashes
-    background_tasks.add_task(email_service.send_weekly_pulse, req.email, req.name)
+    # Use Lazy Email Service
+    svc = get_email_service()
+    background_tasks.add_task(svc.send_weekly_pulse, req.email, req.name)
     return {"message": f"Pulse delivery for {req.name or req.email} has been scheduled."}
 
 @app.get("/api/test-email")
 async def test_email():
     """Diagnostic endpoint to check SMTP connection"""
-    success, message = await email_service.send_weekly_pulse(os.getenv("EMAIL_RECEIVER"), "Diagnostic Test")
+    svc = get_email_service()
+    success, message = await svc.send_weekly_pulse(os.getenv("EMAIL_RECEIVER"), "Diagnostic Test")
     return {"success": success, "message": message, "smtp_user": os.getenv("SMTP_USER"), "smtp_host": os.getenv("SMTP_HOST")}
 
 @app.post("/api/preview")
@@ -293,7 +304,9 @@ async def preview_email(req: EmailRequest):
     async with aiofiles.open(PULSE_PATH, mode='r', encoding='utf-8') as f:
         content = await f.read()
         pulse_data = json.loads(content)
-        html = email_service.get_pulse_html(pulse_data, req.name or "User")
+        svc = get_analyzer() # Wait, email service has the HTML generator
+        svc = get_email_service()
+        html = svc.get_pulse_html(pulse_data, req.name or "User")
         return {"html": html}
 
 if __name__ == "__main__":

@@ -145,4 +145,4 @@ class EmailService:
             print(f"[EMAIL ERROR] {err}")
             return False, err
 
-email_service = EmailService()
+# EmailService class defined above. Use as a factory.

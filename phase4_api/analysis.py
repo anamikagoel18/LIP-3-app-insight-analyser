@@ -243,5 +243,4 @@ class ReviewAnalyzer:
         except Exception as e:
             print(f"[ERROR] SQLite Persistence Failed: {str(e)}")
 
-# Singleton instance
-analyzer = ReviewAnalyzer()
+# ReviewAnalyzer class defined above. Use as a factory.
