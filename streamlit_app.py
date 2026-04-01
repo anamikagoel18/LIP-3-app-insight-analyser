@@ -114,7 +114,7 @@ try:
             data = json.load(f)
         
         # Tabs
-        t1, t2, t3 = st.tabs(["📊 Pulse Brief", "🎯 Strategic Actions", "📡 Raw Stream"])
+        t1, t2, t3, t4 = st.tabs(["📊 Pulse Brief", "🎯 Strategic Actions", "📡 Raw Stream", "📧 Email Pulse"])
         
         with t1:
             st.markdown(f"### Weekly Intelligence Brief")
@@ -156,10 +156,9 @@ try:
 
         with t3:
             st.subheader("Signal Feed")
-            if os.path.exists(R_PATH):
-                with open(R_PATH, 'r', encoding='utf-8') as rf:
-                    all_rd = json.load(rf).get('reviews', [])
-                
+            all_rd = data.get('reviews', [])
+            
+            if all_rd:
                 # Filters
                 f_cols = st.columns(2)
                 with f_cols[0]:
@@ -172,13 +171,50 @@ try:
                 # Filter Logic
                 filtered_df = pd.DataFrame(all_rd)
                 if not filtered_df.empty:
+                    # Date formatting for sorting
+                    filtered_df['Date'] = pd.to_datetime(filtered_df['at']).dt.strftime('%Y-%m-%d')
                     filtered_df = filtered_df[filtered_df['score'].isin(rating_filter)]
                     if theme_filter != "All":
                         filtered_df = filtered_df[filtered_df['content'].str.contains(theme_filter, case=False, na=False)]
                     
-                    st.dataframe(filtered_df[['at', 'score', 'content']].head(50), use_container_width=True)
+                    st.dataframe(
+                        filtered_df[['Date', 'score', 'content']].rename(columns={'score': 'Rating', 'content': 'Review'}),
+                        use_container_width=True,
+                        hide_index=True
+                    )
             else:
-                st.warning("Raw review cache not found.")
+                st.info("No reviews found in this pulse report. Analysis might have been filtered or data is missing.")
+
+        with t4:
+            st.subheader("Email Strategy Pulse")
+            st.markdown("Generate and deliver a professional intelligence report to your inbox.")
+            
+            e_col1, e_col2 = st.columns([2, 1])
+            with e_col1:
+                recipient = st.text_input("Recipient Email", value=os.getenv("EMAIL_RECEIVER", ""), placeholder="ceo@company.com")
+            with e_col2:
+                r_name = st.text_input("Recipient Name", value="Executive", placeholder="Name")
+            
+            if st.button("🚀 Generate & Send Pulse Email", use_container_width=True):
+                if not recipient:
+                    st.error("Please enter a recipient email.")
+                else:
+                    with st.spinner("📦 Packaging Intelligence..."):
+                        # We use run_async but EmailService's send_weekly_pulse is async
+                        # Since email_service is already initialized globally:
+                        success, msg = run_async(email_service.send_weekly_pulse(recipient, r_name))
+                        if success:
+                            st.success(f"Email delivered to {recipient}!")
+                            st.balloons()
+                        else:
+                            st.error(f"Delivery Failed: {msg}")
+
+            st.divider()
+            st.caption("Preview Mode")
+            if st.checkbox("Show Email Preview Template"):
+                st.info("The email will follow the standard INDmoney Pulse HTML branding including the top 3 themes, quotes, and action ideas.")
+                preview_html = email_service.get_pulse_html(data, r_name or "Manager")
+                st.components.v1.html(preview_html, height=600, scrolling=True)
 
     else:
         st.info("No Pulse data found. Use sidebar to analyze.")
