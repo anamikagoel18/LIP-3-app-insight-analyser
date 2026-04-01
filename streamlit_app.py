@@ -58,13 +58,13 @@ try:
                 st.info(f"📊 **Analyzing {limit} reviews ({days}-day range)...**")
                 
                 # Step 1: Fetch
-                st.write("📡 Connecting to Play Store...")
+                st.write("📡 **Connecting to Google Play Store...**")
                 raw = await asyncio.to_thread(fetch_reviews_cached, limit, days)
+                
                 if not raw: 
                     return [False, f"No reviews found in the past {days} days. Try increasing the 'Range' slider."]
                 
-                # Step 2: Process
-                st.write(f"✅ Fetched {len(raw)} reviews. Normalizing data...")
+                st.write(f"📂 **Retrieval Complete.** Processing {len(raw)} raw reviews...")
                 proc = await asyncio.to_thread(processor.process, raw)
                 if not proc:
                     return [False, f"Found {len(raw)} raw reviews, but none were descriptive enough for analysis. Try a higher Limit."]
@@ -128,7 +128,15 @@ try:
         
         with t1:
             st.markdown(f"### Weekly Intelligence Brief")
-            st.caption(f"Synthesized from {data.get('total_reviews', 0)} reviews | {data.get('timestamp', '')[:10]}")
+            
+            # CLEAR METADATA DISPLAY
+            gen_time = data.get('timestamp', 'Unknown')
+            if 'T' in gen_time:
+                date_str = gen_time.split('T')[0]
+                time_str = gen_time.split('T')[1][:5]
+                st.caption(f"📊 **Data Context:** {data.get('total_reviews', 0)} reviews ({data.get('time_range', 30)} days) | 🕒 **Analyzed:** {date_str} at {time_str}")
+            else:
+                st.caption(f"Synthesized from {data.get('total_reviews', 0)} reviews | {gen_time}")
             
             # Themes (Top 3)
             st.markdown("#### 🔍 Core Signals")

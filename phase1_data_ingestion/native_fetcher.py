@@ -11,6 +11,7 @@ class NativeFetcher:
         Fetch reviews using the native google-play-scraper library.
         Optimized with continuation tokens for deep date filtering.
         """
+        print(f"[FETCH] Requesting up to {limit} reviews (Range: {days} days)...")
         all_reviews = []
         token = None
         cutoff = None
@@ -24,6 +25,7 @@ class NativeFetcher:
         page_count = 0
         
         while len(all_reviews) < limit and page_count < max_pages:
+            print(f"[FETCH] Requesting batch {page_count + 1} (Token: {'Yes' if token else 'No'})...")
             batch = reviews(
                 self.app_id,
                 lang='en',
