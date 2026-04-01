@@ -308,6 +308,15 @@ async def preview_email(req: EmailRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # Use environment port for cloud compatibility (Default to 8080 for Railway)
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Railway provides the port via the PORT environment variable
+    # Using os.environ.get is the most reliable way to capture it in Python
+    raw_port = os.environ.get("PORT", "8080")
+    port = int(raw_port)
+    
+    print("="*50)
+    print(f"[STARTUP] BINDING TO HOST: 0.0.0.0")
+    print(f"[STARTUP] BINDING TO PORT: {port}")
+    print(f"[STARTUP] RECOGNIZED FROM ENV: {raw_port}")
+    print("="*50)
+    
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

@@ -5,10 +5,8 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "python -m uvicorn phase4_api.main:app --host 0.0.0.0 --port $PORT --workers 1",
+    "startCommand": "python -m phase4_api.main",
     "restartPolicyType": "ON_FAILURE",
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 120,
     "numReplicas": 1
   }
 }
