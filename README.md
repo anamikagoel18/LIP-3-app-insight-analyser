@@ -1,51 +1,43 @@
-# INDmoney Pulse - Intelligence Dashboard (Cloud Optimized)
+# INDmoney Pulse - Intelligence Dashboard (Pure Python)
 
 ## Overview
-This project provides a professional, AI-driven command center for analyzing INDmoney app reviews. It performs automated sentiment analysis, theme extraction, and strategic reporting using a unified data pipeline and a premium Streamlit dashboard.
+**INDmoney Pulse** is a high-performance, AI-driven command center designed to monitor user sentiment and extract strategic insights from the INDmoney mobile app's Play Store reviews. Rebuilt from the ground up for **Speed and Streamlit Cloud**, this version offers a pure Python pipeline with zero-latency ingestion.
 
-## Services & Access
-The project is optimized for both local execution and **Streamlit Cloud Deployment**.
-
-- **📊 Unified Dashboard**: [http://localhost:8501](http://localhost:8501) (Streamlit Standalone)
-- **🧠 Intelligence API**: (Optional) `phase4_api/main.py` is still available for external API access.
+## ✨ High-Performance Features
+- **🚀 Native Ingestion**: Replaced Node.js subprocesses with a high-speed Python scraper.
+- **🧠 AI Synthesis**: Powered by Groq (Llama-3) and Gemini 1.5 Flash for rapid trend discovery.
+- **📬 Strategic Dispatch**: Integrated one-click email reports for Stakeholders and Product Teams.
+- **☁️ Cloud Optimized**: Zero Node.js dependencies—perfect for lightweight Streamlit Cloud deployment.
 
 ## How to Run Locally
 
 ### 1. Setup Environment
 Ensure your `.env` file contains your `GROQ_API_KEY` and `GEMINI_API_KEY`.
 
-### 2. Start Dashboard
+### 2. Launch Dashboard
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-npm install
 
-# Run the standalone dashboard
+# Start the standalone dashboard
 streamlit run streamlit_app.py
 ```
 
 ## ☁️ Deployment to Streamlit Cloud
 
-This project is "Deploy Ready" for Streamlit Cloud.
-
 ### 1. Connect Repository
-- Push this code to GitHub.
-- Connect your repository in the [Streamlit Cloud Dashboard](https://share.streamlit.io/).
-- Set the main file path to `streamlit_app.py`.
+Connect your GitHub repo to [share.streamlit.io](https://share.streamlit.io/) and set the entry point to `streamlit_app.py`.
 
 ### 2. Configure Secrets
-In the Streamlit Cloud settings for your app, add the following to **Secrets**:
+In the Streamlit Cloud Settings -> Secrets section, add the following to **Secrets (TOML format)**:
 ```toml
-GROQ_API_KEY = "your_key_here"
-GEMINI_API_KEY = "your_key_here"
+GROQ_API_KEY = "your_key"
+GEMINI_API_KEY = "your_key"
 SMTP_USER = "your_email@gmail.com"
-SMTP_PASS = "your_app_password"
+SMTP_PASS = "your_app_password" # Use App Passwords for Gmail
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 ```
 
-### 3. Automatic Environment Setup
-The app will automatically:
-- Detect the cloud environment.
-- Install Node.js via `packages.txt`.
-- Run `npm install` on first startup to initialize the review-fetching pipeline.
+## Architecture Summary
+This project has been optimized to run as a single-process Python application. The 6-phase Node.js pipeline has been deprecated in favor of this streamlined, high-speed architecture.

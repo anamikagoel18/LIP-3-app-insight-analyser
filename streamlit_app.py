@@ -1,3 +1,4 @@
+# --- VERSION: 2026-04-01-V9 (Index-Safe Architecture) ---
 import streamlit as st
 import os
 import json
@@ -5,223 +6,144 @@ import asyncio
 import time
 import datetime
 import pandas as pd
-import subprocess
 import sys
+import traceback
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
-# --- PAGE CONFIG ---
+# --- PAGE CONFIG (Absolute Priority 1) ---
 st.set_page_config(
     page_title="INDmoney Pulse | Intelligence Dashboard",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="📊", layout="wide", initial_sidebar_state="expanded"
 )
 
-# --- CLOUD STARTUP AUTOMATION (NPM INSTALL) ---
-def ensure_node_dependencies():
-    """Check for node_modules and run npm install if in cloud or missing."""
-    if not os.path.exists("node_modules"):
-        with st.spinner("📦 Initializing Cloud Environment (Installing Node.js Dependencies)..."):
-            try:
-                # Use --no-audit and --no-fund for speed in cloud builds
-                subprocess.run(["npm", "install", "--no-audit", "--no-fund"], check=True)
-                st.toast("✅ Node.js environment ready!", icon="🚀")
-            except Exception as e:
-                st.error(f"Failed to install Node.js dependencies: {e}")
+# --- GLOBAL WRAPPER TO CATCH ALL FAILURES ---
+try:
+    load_dotenv()
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    if BASE_DIR not in sys.path:
+        sys.path.append(BASE_DIR)
 
-# Run once per session
-if 'npm_ready' not in st.session_state:
-    ensure_node_dependencies()
-    st.session_state.npm_ready = True
+    from phase1_data_ingestion.native_fetcher import native_fetcher
+    from phase2_processing.processor import processor
+    from phase4_api.analysis import ReviewAnalyzer
+    from phase4_api.email_service import EmailService
 
-# --- CONFIG & SECRETS HANDLING ---
-load_dotenv()
+    # --- SAFE ENGINE LOADING ---
+    @st.cache_resource
+    def load_cached_engines_v9():
+        try:
+            return [ReviewAnalyzer(), EmailService()]
+        except:
+            return None
 
-def get_secret(key: str, default: str = None) -> str:
-    """Fallback from st.secrets (Cloud) to os.getenv (Local)."""
-    if key in st.secrets:
-        return st.secrets[key]
-    return os.getenv(key, default)
-
-# --- ENGINE IMPORTS & INITIALIZATION ---
-# Add project root to sys.path to allow relative imports from phase4_api
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
-
-# Importing the engines from our existing architecture
-from phase4_api.analysis import ReviewAnalyzer
-from phase4_api.email_service import EmailService
-
-@st.cache_resource
-def get_engines():
-    """Initialize and cache the intelligence engines."""
-    return ReviewAnalyzer(), EmailService()
-
-analyzer_engine, email_service = get_engines()
-
-# --- STATE MANAGEMENT ---
-if 'is_processing' not in st.session_state:
-    st.session_state.is_processing = False
-if 'progress_label' not in st.session_state:
-    st.session_state.progress_label = ""
-
-# --- PATHS ---
-DATA_DIR = os.path.join(BASE_DIR, "data")
-REPORTS_DIR = os.path.join(BASE_DIR, "reports")
-PULSE_PATH = os.path.join(REPORTS_DIR, "weekly_pulse.json")
-REVIEWS_PATH = os.path.join(DATA_DIR, "processed_reviews.json")
-
-# --- CORE LOGIC PORTED FROM FASTAPI ---
-def parse_date(date_str):
-    if not date_str: return datetime.datetime.min
-    try:
-        if date_str.endswith('Z'): date_str = date_str.replace('Z', '+00:00')
-        return datetime.datetime.fromisoformat(date_str).replace(tzinfo=None)
-    except:
-        try: return datetime.datetime.strptime(date_str[:10], "%Y-%m-%d")
-        except: return datetime.datetime.min
-
-async def run_standalone_pipeline(limit: int, days: int):
-    st.session_state.is_processing = True
-    st.session_state.progress_label = "Initializing Pipeline..."
-    
-    try:
-        # Phase 1 & 2: Ingestion (JS)
-        st.session_state.progress_label = "Fetching Play Store reviews..."
-        pipeline_path = os.path.join(BASE_DIR, "adaptive_pipeline.js")
-        
-        process = await asyncio.create_subprocess_exec(
-            "node", pipeline_path, str(limit), str(days), "--skip-analysis",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=BASE_DIR
-        )
-        await process.wait()
-
-        # Phase 3: Analysis (Python)
-        st.session_state.progress_label = "Synthesizing Intelligence..."
-        if os.path.exists(REVIEWS_PATH):
-            with open(REVIEWS_PATH, 'r', encoding='utf-8') as f:
-                raw_data = json.load(f)
-                reviews = raw_data if isinstance(raw_data, list) else raw_data.get("reviews", [])
-                
-                # Context Slicing
-                if days > 0:
-                    cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
-                    reviews = [r for r in reviews if parse_date(r.get("date")) >= cutoff]
-                
-                reviews.sort(key=lambda x: parse_date(x.get("date")), reverse=True)
-                target_reviews = reviews[:limit]
-                
-                # Run Analysis
-                report, error = await analyzer_engine.run_analysis(target_reviews, limit=limit, days=days)
-                if report:
-                    return True, "Analysis Complete!"
-                return False, error or "Analysis Failed"
-    except Exception as e:
-        return False, str(e)
-    finally:
-        st.session_state.is_processing = False
-        st.session_state.progress_label = ""
-
-# --- UI STYLING ---
-st.markdown("""
-    <style>
-    .main { background-color: #0f172a; }
-    .stApp { background-color: #0f172a; color: #f8fafc; }
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; background-color: #1e293b; padding: 10px 20px; border-radius: 12px; }
-    .theme-card { background: #1e293b; padding: 20px; border-radius: 12px; border-left: 5px solid #3b82f6; margin-bottom: 12px; }
-    .metric-card { background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(59, 130, 246, 0.2); }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.image("https://img.icons8.com/isometric/100/ffffff/area-chart.png", width=80)
-    st.title("INDmoney Pulse")
-    st.subheader("Intelligence Center")
-    st.markdown("---")
-
-    if st.session_state.is_processing:
-        st.warning(f"⚡ {st.session_state.progress_label}")
-        st.spinner()
+    # NO UNPACKING: Use Indexing
+    _engines_list = load_cached_engines_v9()
+    if isinstance(_engines_list, (list, tuple)) and len(_engines_list) == 2:
+        analyzer_engine = _engines_list[0]
+        email_service = _engines_list[1]
     else:
-        st.success("✨ Engine Ready")
+        analyzer_engine = None
+        email_service = None
+
+    # --- FAIL-SAFE ASYNC RUNNER ---
+    def execute_async_v9(coro):
+        """Absolute return guarantee: Never returns None."""
+        try:
+            _loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_loop)
+            _res = _loop.run_until_complete(coro)
+            _loop.close()
+            # GUARANTEE: Must be a list of 2 items
+            if _res is None or not isinstance(_res, (list, tuple)) or len(_res) < 2:
+                return [False, "Process failed to return status."]
+            return _res
+        except Exception as _e:
+            return [False, f"Runner Error: {str(_e)}"]
+
+    # --- DASHBOARD LOGIC ---
+    async def run_v9_pipeline(limit, days):
+        st.session_state.is_processing = True
+        try:
+            # 1. Ingestion
+            raw_data = native_fetcher.fetch_reviews(limit=limit, days=days)
+            if not raw_data: return [False, "No signals found."]
+            
+            # 2. Processing
+            processed = await asyncio.to_thread(processor.process, raw_data)
+            
+            # 3. AI Analysis
+            if not analyzer_engine: return [False, "AI engine offline."]
+            
+            _ai_out = await analyzer_engine.run_analysis(processed[:limit], limit=limit, days=days)
+            if isinstance(_ai_out, (list, tuple)) and len(_ai_out) >= 2:
+                if _ai_out[0]: return [True, "Analysis Complete"]
+                return [False, _ai_out[1] or "Analysis result empty"]
+            
+            return [False, "Engine Format Error"]
+        except Exception as _pe:
+            return [False, f"Fail: {str(_pe)}"]
+        finally:
+            st.session_state.is_processing = False
+
+    # --- UI RENDERER (Shadow-Free & Index-Safe) ---
+    st.title("Strategic Insight Dashboard")
+    if 'is_processing' not in st.session_state: st.session_state.is_processing = False
+
+    with st.sidebar:
+        st.image("https://img.icons8.com/isometric/100/ffffff/area-chart.png", width=80)
+        st.header("Intelligence Controls")
         
-    if os.path.exists(REVIEWS_PATH):
-        with open(REVIEWS_PATH, 'r') as f:
-            count = len(json.load(f))
-            st.metric("Reviews Indexed", count)
-
-    st.markdown("---")
-    st.subheader("Trigger Analysis")
-    limit = st.slider("Review Limit", 50, 500, 100)
-    days = st.select_slider("Time Range", options=[0, 7, 30, 90], value=30, 
-                           format_func=lambda x: "All Time" if x == 0 else f"{x} Days")
-    
-    if st.button("🚀 Run Standalone Pipeline") and not st.session_state.is_processing:
-        success, msg = asyncio.run(run_standalone_pipeline(limit, days))
-        if success:
-            st.success(msg)
-            time.sleep(1)
-            st.rerun()
-        else:
-            st.error(msg)
-
-# --- MAIN DASHBOARD ---
-st.title("Strategic Insight Dashboard")
-
-if os.path.exists(PULSE_PATH):
-    with open(PULSE_PATH, 'r') as f:
-        pulse_data = json.load(f)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"<div class='metric-card'><h4>Analyzed</h4><h2>{pulse_data.get('total_reviews', 0)}</h2></div>", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"<div class='metric-card'><h4>Primary Theme</h4><h2>{pulse_data.get('top_themes', [{}])[0].get('name', 'N/A')}</h2></div>", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"<div class='metric-card'><h4>Synthesis Date</h4><p>{pulse_data.get('timestamp', '')[:16]}</p></div>", unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["Weekly Pulse", "Strategic Actions", "Review Feed"])
-
-    with tab1:
-        st.subheader("Intelligence Clusters")
-        cols = st.columns(3)
-        for i, theme in enumerate(pulse_data.get('top_themes', [])[:3]):
-            with cols[i]:
-                st.markdown(f"<div class='theme-card' style='border-left-color: {['#3b82f6', '#a855f7', '#f97316'][i]}'><h4>{theme.get('name')}</h4><p>{theme.get('count', 0)} Signals Detected</p></div>", unsafe_allow_html=True)
+        _t_limit = st.slider("Limit", 50, 500, 100)
+        _t_days = st.select_slider("Range", options=[7, 30, 90], value=30)
         
-        st.markdown("---")
-        st.subheader("Verbatim User Voice")
-        for quote in pulse_data.get('quotes', [])[:3]:
-            st.info(f'"{quote}"')
+        if st.button("🚀 Analyze Signal") and not st.session_state.is_processing:
+            _run = execute_async_v9(run_v9_pipeline(_t_limit, _t_days))
+            if _run[0]: # Index 0 is Success
+                st.success(_run[1]); time.sleep(1); st.rerun()
+            else:
+                st.error(_run[1]) # Index 1 is Message
 
-    with tab2:
-        st.subheader("Product Strategy Ideas")
-        for action in pulse_data.get('action_ideas', []):
-            st.markdown(f"✦ {action}")
+    # Metrics Grid
+    _P_PATH = os.path.join(BASE_DIR, "reports", "weekly_pulse.json")
+    if os.path.exists(_P_PATH):
+        with open(_P_PATH, 'r', encoding='utf-8') as _f:
+            _p_data = json.load(_f)
         
-        st.markdown("---")
-        st.subheader("Email Dispatch")
-        email_to = st.text_input("Recipient Address", placeholder="leads@indmoney.com")
-        if st.button("📬 Dispatch Pulse Report") and email_to:
-            with st.spinner("Delivering..."):
-                success, msg = asyncio.run(email_service.send_weekly_pulse(email_to, "Team"))
-                if success: st.success("Report delivered successfully!")
-                else: st.error(msg)
+        _grid = st.columns(3)
+        if len(_grid) == 3:
+            _grid[0].metric("Analyzed", _p_data.get('total_reviews', 0))
+            _grid[1].metric("Theme", _p_data.get('top_themes', [{}])[0].get('name', 'N/A'))
+            _grid[2].metric("Date", _p_data.get('timestamp', '')[:10])
 
-    with tab3:
-        st.subheader("Review Data Stream")
-        if os.path.exists(REVIEWS_PATH):
-            with open(REVIEWS_PATH, 'r') as f:
-                df = pd.DataFrame(json.load(f))
-                st.dataframe(df[["rating", "text", "date"]].head(100), use_container_width=True)
+        _tabs = st.tabs(["Pulse Brief", "Actions", "Raw Stream"])
+        if len(_tabs) == 3:
+            with _tabs[0]:
+                st.subheader("Intelligence Themes")
+                for _t in _p_data.get('top_themes', [])[:3]:
+                    st.info(f"**{_t.get('name')}** ({_t.get('count', 0)} signals)")
+            
+            with _tabs[1]:
+                st.subheader("Dispatch Center")
+                _target = st.text_input("Stakeholder Email")
+                if st.button("📬 Dispatch Pulse") and _target:
+                    _d_res = execute_async_v9(email_service.send_weekly_pulse(_target, "Team"))
+                    if _d_res[0]: st.success("Dispatch Sent");
+                    else: st.error(_d_res[1])
+            
+            with _tabs[2]:
+                _R_PATH = os.path.join(BASE_DIR, "data", "processed_reviews.json")
+                if os.path.exists(_R_PATH):
+                    with open(_R_PATH, 'r', encoding='utf-8') as _rf:
+                        _rd = json.load(_rf).get('reviews', [])
+                        if _rd: st.dataframe(pd.DataFrame(_rd).head(100), use_container_width=True)
+    else:
+        st.info("Awaiting initial pulse. Start analysis in the sidebar.")
 
-else:
-    st.info("No Weekly Pulse found in this environment. Run the pipeline from the sidebar to begin.")
+except Exception as _critical:
+    st.error("### 🛑 CRITICAL INDEX FAILURE")
+    st.code(traceback.format_exc())
+    st.warning("Please restart the dashboard server to clear corrupted session memory.")
 
 st.markdown("---")
-st.caption("INDmoney Pulse | Deployment: Standalone (Streamlit Cloud Optimized)")
+st.caption("INDmoney Pulse | Production V-9 (Index-Safe Architecture)")

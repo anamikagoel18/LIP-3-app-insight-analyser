@@ -173,6 +173,9 @@ class ReviewAnalyzer:
             
             print(f"[ERROR] Engine Analysis Failed: {err_msg}")
             return None, err_msg
+        
+        # Absolute fallback to prevent NoneType unpacking errors
+        return None, "Unexpected Analysis Stop"
 
 
     async def save_results(self, report: Dict[str, Any], analyzed_count: int, source_total: int, limit: int, days: int, engine: str = "Unknown"):
