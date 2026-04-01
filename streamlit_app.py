@@ -33,6 +33,10 @@ try:
         try: return [ReviewAnalyzer(), EmailService()]
         except: return None
 
+    @st.cache_data(ttl=3600)
+    def fetch_reviews_cached(limit, days):
+        return native_fetcher.fetch_reviews(limit=limit, days=days)
+
     _engines = load_engines()
     analyzer_engine = _engines[0] if _engines else None
     email_service = _engines[1] if _engines else None
@@ -46,17 +50,33 @@ try:
             return _res if isinstance(_res, (list, tuple)) else [False, "Err"]
         except Exception as _e: return [False, str(_e)]
 
-    async def pipeline_task(limit, days):
+    async def pipeline_task(limit, days, status_placeholder):
         st.session_state.is_processing = True
         try:
-            raw = native_fetcher.fetch_reviews(limit=limit, days=days)
-            if not raw: return [False, "No data."]
-            proc = await asyncio.to_thread(processor.process, raw)
-            if not analyzer_engine: return [False, "AI Offline."]
-            res = await analyzer_engine.run_analysis(proc[:limit], limit=limit, days=days)
-            return [True, "Success"] if (isinstance(res, (list, tuple)) and res[0]) else [False, "Analysis Failed"]
-        except Exception as _e: return [False, str(_e)]
-        finally: st.session_state.is_processing = False
+            # Using a status container for better UX if available
+            with status_placeholder.container():
+                st.write("🔄 **Initializing Ingestion Pipeline...**")
+                
+                # Step 1: Fetch
+                st.write("📡 Connecting to Play Store...")
+                raw = await asyncio.to_thread(fetch_reviews_cached, limit, days)
+                if not raw: return [False, "No data found for selected range."]
+                
+                # Step 2: Process
+                st.write(f"✅ Fetched {len(raw)} reviews. Normalizing data...")
+                proc = await asyncio.to_thread(processor.process, raw)
+                
+                # Step 3: Analyze
+                if not analyzer_engine: return [False, "AI Engine Offline."]
+                st.write("🧠 Running AI Signal Analysis (Groq/Gemini)...")
+                res = await analyzer_engine.run_analysis(proc[:limit], limit=limit, days=days)
+                
+                return [True, "Success"] if (isinstance(res, (list, tuple)) and res[0]) else [False, "Analysis Failed"]
+        except Exception as _e: 
+            return [False, str(_e)]
+        finally: 
+            st.session_state.is_processing = False
+            status_placeholder.empty()
 
     # --- UI RENDERER ---
     st.title("Strategic Insight Dashboard")
@@ -66,10 +86,24 @@ try:
         if 'is_processing' not in st.session_state: st.session_state.is_processing = False
         _lim = st.slider("Limit", 50, 500, 100)
         _days = st.select_slider("Range", options=[7, 30, 90], value=30)
-        if st.button("🚀 Analyze Signal") and not st.session_state.is_processing:
-            _r = run_async(pipeline_task(_lim, _days))
-            if _r[0]: st.success("Complete!"); time.sleep(1); st.rerun()
-            else: st.error(_r[1])
+        
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            btn_analyze = st.button("🚀 Analyze Signal", use_container_width=True, disabled=st.session_state.is_processing)
+        with col2:
+            if st.button("🧹", help="Clear Cache"):
+                st.cache_data.clear()
+                st.toast("Cache Cleared!")
+
+        if btn_analyze:
+            status_p = st.sidebar.empty()
+            _r = run_async(pipeline_task(_lim, _days, status_p))
+            if _r[0]: 
+                st.success("Complete!")
+                time.sleep(0.5)
+                st.rerun()
+            else: 
+                st.error(_r[1])
 
     # --- CONTENT ---
     P_PATH = os.path.join(BASE_DIR, "reports", "weekly_pulse.json")

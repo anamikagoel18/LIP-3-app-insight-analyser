@@ -160,7 +160,7 @@ class ReviewAnalyzer:
 
             # Persistence
             if final_report:
-                await self.save_results(final_report, analyzed_count, source_total, limit, days, engine=engine_name)
+                await self.save_results(final_report, analyzed_count, source_total, limit, days, engine=engine_name, reviews=target_reviews)
                 print(f"[ANALYSIS] Intelligence Success ({engine_name}).")
                 return final_report, None
             else:
@@ -178,7 +178,7 @@ class ReviewAnalyzer:
         return None, "Unexpected Analysis Stop"
 
 
-    async def save_results(self, report: Dict[str, Any], analyzed_count: int, source_total: int, limit: int, days: int, engine: str = "Unknown"):
+    async def save_results(self, report: Dict[str, Any], analyzed_count: int, source_total: int, limit: int, days: int, engine: str = "Unknown", reviews: List[Dict] = None):
         # 1. Save JSON files
         os.makedirs(os.path.dirname(self.report_path), exist_ok=True)
         
@@ -202,6 +202,7 @@ class ReviewAnalyzer:
             pulse["time_range"] = days
             pulse["analysis_status"] = 'success'
             pulse["engine"] = engine
+            pulse["reviews"] = reviews if reviews else []
             
             with open(self.pulse_path, 'w', encoding='utf-8') as f:
                 json.dump(pulse, f, indent=2)
