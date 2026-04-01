@@ -53,25 +53,35 @@ try:
     async def pipeline_task(limit, days, status_placeholder):
         st.session_state.is_processing = True
         try:
-            # Using a status container for better UX if available
+            # Explicit status container for better UX
             with status_placeholder.container():
-                st.write("🔄 **Initializing Ingestion Pipeline...**")
+                st.info(f"📊 **Analyzing {limit} reviews ({days}-day range)...**")
                 
                 # Step 1: Fetch
                 st.write("📡 Connecting to Play Store...")
                 raw = await asyncio.to_thread(fetch_reviews_cached, limit, days)
-                if not raw: return [False, "No data found for selected range."]
+                if not raw: 
+                    return [False, f"No reviews found in the past {days} days. Try increasing the 'Range' slider."]
                 
                 # Step 2: Process
                 st.write(f"✅ Fetched {len(raw)} reviews. Normalizing data...")
                 proc = await asyncio.to_thread(processor.process, raw)
+                if not proc:
+                    return [False, f"Found {len(raw)} raw reviews, but none were descriptive enough for analysis. Try a higher Limit."]
                 
                 # Step 3: Analyze
-                if not analyzer_engine: return [False, "AI Engine Offline."]
-                st.write("🧠 Running AI Signal Analysis (Groq/Gemini)...")
-                res = await analyzer_engine.run_analysis(proc[:limit], limit=limit, days=days)
+                if not analyzer_engine: return [False, "AI Engine Offline. Check environment variables."]
                 
-                return [True, "Success"] if (isinstance(res, (list, tuple)) and res[0]) else [False, "Analysis Failed"]
+                target_count = len(proc[:limit])
+                st.write(f"🧠 Analyzing {target_count} signals with AI...")
+                
+                # FIX: Catch actual error message from the analyzer
+                res, err = await analyzer_engine.run_analysis(proc[:limit], limit=limit, days=days)
+                
+                if res and not err:
+                    return [True, "Success"]
+                else:
+                    return [False, err or "Intelligence result returned empty."]
         except Exception as _e: 
             return [False, str(_e)]
         finally: 
