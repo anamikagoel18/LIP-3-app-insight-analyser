@@ -147,14 +147,25 @@ export default function BrandedDashboard() {
     e.preventDefault();
     setDispatching(true);
     try {
-      await fetch(`${API_BASE}/email`, {
+      const res = await fetch(`${API_BASE}/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailForm),
       });
-      alert('Pulse Delivered!');
-    } catch (err) { alert('Delivery failed'); }
-    finally { setDispatching(false); }
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        alert('🎉 Pulse Delivered Successfully!');
+      } else {
+        // Display the specific error from the backend diagnostics
+        alert(`❌ Delivery Failed: ${data.detail || 'Unknown Error'}`);
+      }
+    } catch (err) { 
+      alert('❌ Delivery Failed: Could not connect to the backend server.'); 
+    } finally { 
+      setDispatching(false); 
+    }
   };
   
   // 2. Real-time Status Polling

@@ -16,20 +16,22 @@ load_dotenv()
 
 app = FastAPI(title="INDmoney Pulse API (FastAPI)")
 
-# --- STARTUP DIAGNOSTICS ---
-# Railway sometimes uses 'PORT' or 'RAILWAY_TCP_PROXY_PORT'
-env_port = os.getenv('PORT') or os.getenv('RAILWAY_TCP_PROXY_PORT') or '8080'
-print(f"[STARTUP] DETECTED PORT: {env_port}")
-print(f"[STARTUP] COMMAND LINE: {sys.argv}")
-print(f"[STARTUP] PYTHON PATH: {sys.path[:3]}")
-
 @app.get("/")
 async def root():
-    """Health check heartbeat for Railway"""
+    """Welcome endpoint for the INDmoney Pulse API"""
     return {
+        "message": "INDmoney Pulse FastAPI Backend is active.",
         "status": "online",
-        "port": env_port,
-        "worker_pid": os.getpid(),
+        "docs": "/docs",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+@app.get("/api/health")
+async def health_check():
+    """Dedicated health check heartbeat for Railway deployment"""
+    return {
+        "status": "healthy",
+        "port": os.getenv('PORT', '8080'),
         "timestamp": datetime.datetime.now().isoformat()
     }
 
@@ -71,10 +73,6 @@ class SystemState:
     progress_label = ""
 
 state = SystemState()
-
-@app.get("/")
-async def root():
-    return {"message": "INDmoney Pulse FastAPI Backend is active.", "docs": "/docs"}
 
 # Models
 class TriggerRequest(BaseModel):
